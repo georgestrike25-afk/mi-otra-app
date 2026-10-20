@@ -86,10 +86,10 @@ jobs:
           git tag -f "$etiqueta"
           git push -f origin "refs/tags/$etiqueta"
           if gh release view "$etiqueta" > /dev/null 2>&1; then
-            gh release edit "$etiqueta" --title "$titulo" --notes "$notas" --prerelease
+            gh release edit "$etiqueta" --title "$titulo" --notes "$notas" --prerelease=false --latest
             gh release upload "$etiqueta" HemoCheck.apk --clobber
           else
-            gh release create "$etiqueta" HemoCheck.apk --title "$titulo" --notes "$notas" --prerelease
+            gh release create "$etiqueta" HemoCheck.apk --title "$titulo" --notes "$notas" --prerelease=false --latest
           fi
 
   emulador:
