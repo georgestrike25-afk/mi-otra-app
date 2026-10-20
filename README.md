@@ -116,7 +116,7 @@ quien tenga acceso al repositorio podría firmar una versión con la clave de pr
 ## Instalar en el Samsung Galaxy S24+
 
 1. En el teléfono, abrí
-   `https://github.com/georgestrike25-afk/mi-app-android/releases/download/hemocheck-ultima-version/HemoCheck.apk`
+   `https://github.com/georgestrike25-afk/mi-otra-app/releases/download/hemocheck-ultima-version/HemoCheck.apk`
    (o descargá el artifact `HemoCheck-apk-N` desde la pestaña *Actions*).
 2. Abrí el archivo descargado. Si Android lo pide, permití «Instalar apps desconocidas» para el
    navegador o «Mis archivos» (Ajustes → Aplicaciones → Acceso especial → Instalar apps
