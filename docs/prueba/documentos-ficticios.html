@@ -7,18 +7,18 @@
 <style>
   :root { --tinta: #111; --borde: #333; }
   body { font-family: Arial, Helvetica, sans-serif; color: var(--tinta); background: #fff; margin: 0; padding: 16px; }
-  .hoja { width: 190mm; min-height: 260mm; margin: 0 auto 24px; padding: 12mm; border: 1px solid #ccc; box-sizing: border-box; page-break-after: always; }
+  .hoja { width: 190mm; min-height: 250mm; margin: 0 auto 24px; padding: 8mm; border: 1px solid #ccc; box-sizing: border-box; page-break-after: always; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .marca { font-size: 13px; font-weight: bold; border: 2px solid var(--tinta); padding: 4px 8px; display: inline-block; margin: 6px 0 14px; }
   table { border-collapse: collapse; width: 100%; font-size: 17px; }
   th, td { border: 1px solid var(--borde); padding: 10px 6px; text-align: center; }
   td.id { font-family: "Courier New", monospace; font-weight: bold; text-align: left; white-space: nowrap; }
   .pie { margin-top: 18px; font-size: 14px; }
-  .etiquetas { display: flex; flex-wrap: wrap; gap: 10mm; }
-  .etiqueta { width: 85mm; height: 55mm; border: 2px solid var(--tinta); padding: 5mm; box-sizing: border-box; }
-  .etiqueta .din { font-family: "Courier New", monospace; font-size: 26px; font-weight: bold; margin-top: 8mm; }
+  .etiquetas { display: flex; flex-wrap: wrap; gap: 8mm; }
+  .etiqueta { width: 80mm; height: 55mm; border: 2px solid var(--tinta); padding: 5mm; box-sizing: border-box; }
+  .etiqueta .din { white-space: nowrap; font-family: "Courier New", monospace; font-size: 21px; font-weight: bold; margin-top: 8mm; }
   .etiqueta .ctl { border: 2px solid var(--tinta); padding: 0 4px; margin-left: 6px; }
-  @media print { body { padding: 0; } .hoja { border: none; margin: 0; } .instrucciones { display: none; } }
+  @media print { body { padding: 0; } .hoja { border: none; margin: 0; } }
 </style>
 </head>
 <body>
@@ -26,8 +26,8 @@
   <h1>Documentos ficticios para probar HemoCheck</h1>
   <p>Imprimí estas páginas en papel blanco (A4, sin escalar). <strong>Todos los identificadores y resultados son inventados</strong>. No uses datos reales de donantes para las pruebas.</p>
   <ol>
-    <li>Registrá la página 1 como <em>Serología convencional</em> y la página 2 como <em>Serología molecular</em>.</li>
-    <li>Recortá las etiquetas de la página 3 y verificá cada una.</li>
+    <li>Registrá la hoja «Serología convencional — planilla de prueba» como <em>Serología convencional</em> y la hoja «Serología molecular (NAT)» como <em>Serología molecular</em>. Apoyalas sobre una mesa oscura al fotografiarlas.</li>
+    <li>Recortá las etiquetas de la última hoja y verificá cada una con «Verificar hemocomponente».</li>
     <li>Resultados esperados: X9999 26 000101 → coincidencia en ambos registros; 000102 → reactivo documentado (Anti-HBc); 000103 → falta el registro molecular; 000104 → no encontrado; 000105 → duplicado (aparece en dos filas); 000106 → la etiqueta tiene el carácter de control incorrecto.</li>
   </ol>
 </div>
