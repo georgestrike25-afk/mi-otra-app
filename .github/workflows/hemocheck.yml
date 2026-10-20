@@ -1,0 +1,153 @@
+# HemoCheck: pruebas, compilación del APK y pruebas en emulador (cámara integrada y OCR sin red).
+name: HemoCheck
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/hemocheck.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hemocheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    name: Pruebas y APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Instalar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Pruebas del núcleo y de la app, compilación de los APK
+        run: ./gradlew :core:test testDebugUnitTest assembleDebug assembleRelease --no-daemon --stacktrace
+
+      - name: Verificar que el APK no tiene permiso de Internet
+        run: |
+          set -euo pipefail
+          aapt2="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/aapt2"
+          for apk in app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk; do
+            echo "== $apk"
+            "$aapt2" dump permissions "$apk" | tee permisos.txt
+            if grep -q "android.permission.INTERNET" permisos.txt; then
+              echo "ERROR: el APK declara el permiso de Internet"; exit 1
+            fi
+          done
+
+      - name: Informes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informes-pruebas
+          path: |
+            core/build/reports/tests/
+            app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Subir APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HemoCheck-apk-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Link fijo para descargar desde el teléfono:
+      # https://github.com/<dueño>/<repo>/releases/download/hemocheck-ultima-version/HemoCheck.apk
+      - name: Publicar en la versión "hemocheck-ultima-version"
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/release/app-release.apk HemoCheck.apk
+          etiqueta="hemocheck-ultima-version"
+          titulo="HemoCheck (última versión de prueba)"
+          notas="HemoCheck 0.1.${GITHUB_RUN_NUMBER}, compilado desde ${GITHUB_REF_NAME} (${GITHUB_SHA::7}) el $(date -u '+%d/%m/%Y %H:%M') UTC. Versión de prueba: usar solo con documentos ficticios hasta validarla en el servicio."
+          git tag -f "$etiqueta"
+          git push -f origin "refs/tags/$etiqueta"
+          if gh release view "$etiqueta" > /dev/null 2>&1; then
+            gh release edit "$etiqueta" --title "$titulo" --notes "$notas" --prerelease
+            gh release upload "$etiqueta" HemoCheck.apk --clobber
+          else
+            gh release create "$etiqueta" HemoCheck.apk --title "$titulo" --notes "$notas" --prerelease
+          fi
+
+  emulador:
+    name: Pruebas en emulador (cámara y modo avión)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Instalar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # El emulador necesita varios GB libres: se quitan herramientas que no se usan
+      - name: Liberar espacio en disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/local/lib/android/sdk/ndk "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          df -h /
+
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Compilar los APK de prueba
+        run: ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
+
+      - name: Correr las pruebas instrumentadas sin conexión
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          disk-size: 4096M
+          ram-size: 3072M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated
+          script: |
+            adb shell cmd connectivity airplane-mode enable || true
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb logcat -c
+            ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (adb logcat -d > logcat.txt && exit 1)
+
+      - name: Guardar informes del emulador
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informes-emulador
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            logcat.txt
+          if-no-files-found: ignore

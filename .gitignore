@@ -1,0 +1,19 @@
+# Gradle / compilación
+.gradle/
+build/
+/local.properties
+/captures
+.externalNativeBuild/
+.cxx/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Nunca subir fotos ni datos reales
+*.jpg
+*.jpeg
+*.png
+!app/src/main/res/**/*.png
