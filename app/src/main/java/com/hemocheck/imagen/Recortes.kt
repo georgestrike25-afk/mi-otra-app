@@ -28,3 +28,36 @@ fun decodificarReducido(jpeg: ByteArray, ladoMax: Int): Bitmap? {
     while (maxOf(o.outWidth, o.outHeight) / muestra > ladoMax) muestra *= 2
     return BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, BitmapFactory.Options().apply { inSampleSize = muestra })
 }
+
+/**
+ * Imagen ampliada de una fila de la planilla con su encabezado encima, recortados con el mismo
+ * ancho para que las columnas queden alineadas (como en la hoja). Si el encabezado está cerca de
+ * la fila se recorta un solo bloque; si está lejos, se apilan las dos franjas con una línea
+ * separadora. Todo en memoria. Null si no se conoce la ubicación de la fila.
+ */
+fun componerFila(bmp: Bitmap, encabezado: Caja?, fila: Caja?, anchoReferencia: Int, altoReferencia: Int): Bitmap? {
+    val f = fila ?: return null
+    val escala = bmp.width.toFloat() / anchoReferencia.coerceAtLeast(1)
+    val margen = maxOf(f.alto, 12)
+    val izq = minOf(f.izq, encabezado?.izq ?: f.izq) - margen
+    val der = maxOf(f.der, encabezado?.der ?: f.der) + margen
+    fun franja(c: Caja): Caja? = Caja(
+        (izq * escala).toInt(), ((c.arriba - margen) * escala).toInt(),
+        (der * escala).toInt(), ((c.abajo + margen) * escala).toInt(),
+    ).limitarA(bmp.width, bmp.height)
+
+    val e = encabezado
+    if (e == null || f.arriba - e.abajo <= f.alto * 4) {
+        val c = franja(if (e == null) f else Caja(f.izq, minOf(e.arriba, f.arriba), f.der, maxOf(e.abajo, f.abajo))) ?: return null
+        return Bitmap.createBitmap(bmp, c.izq, c.arriba, c.ancho, c.alto)
+    }
+    val ce = franja(e) ?: return null
+    val cf = franja(f) ?: return null
+    val separacion = maxOf(4, (f.alto * escala / 4).toInt())
+    val salida = Bitmap.createBitmap(maxOf(ce.ancho, cf.ancho), ce.alto + separacion + cf.alto, Bitmap.Config.ARGB_8888)
+    val lienzo = android.graphics.Canvas(salida)
+    lienzo.drawColor(android.graphics.Color.GRAY)
+    lienzo.drawBitmap(bmp, android.graphics.Rect(ce.izq, ce.arriba, ce.der, ce.abajo), android.graphics.Rect(0, 0, ce.ancho, ce.alto), null)
+    lienzo.drawBitmap(bmp, android.graphics.Rect(cf.izq, cf.arriba, cf.der, cf.abajo), android.graphics.Rect(0, ce.alto + separacion, cf.ancho, ce.alto + separacion + cf.alto), null)
+    return salida
+}

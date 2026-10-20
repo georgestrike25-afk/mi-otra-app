@@ -26,7 +26,8 @@ class MotorOcr {
     private val barras by lazy {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(Barcode.FORMAT_CODE_128, Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
+                // Code 39 es el de las etiquetas locales («*295216G*»); Code 128 / Data Matrix, ISBT 128
+                .setBarcodeFormats(Barcode.FORMAT_CODE_39, Barcode.FORMAT_CODE_128, Barcode.FORMAT_CODABAR, Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
                 .build()
         )
     }

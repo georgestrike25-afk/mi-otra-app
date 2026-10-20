@@ -29,6 +29,8 @@ data class LecturaEtiqueta(
     /** DIN leído del código de barras ISBT 128, si se detectó. */
     val idCodigoBarras: String?,
     val avisos: Set<AvisoEtiqueta>,
+    /** Letra de componente leída (p. ej. «G»), solo informativa. */
+    val componente: String? = null,
 ) {
     /** La lectura necesita atención especial antes de confirmar (además de la confirmación habitual). */
     val requiereAtencion: Boolean
@@ -51,6 +53,7 @@ class AnalizadorEtiqueta(
             .sortedWith(
                 compareByDescending<OcurrenciaId> { it.controlValido == true }
                     .thenByDescending { it.estricto }
+                    .thenByDescending { it.anclado }
                     .thenByDescending { it.formato == TipoFormato.ISBT128 }
                     .thenByDescending { it.caja?.alto ?: 0 }
                     .thenByDescending { it.confianza ?: 0f }
@@ -59,9 +62,13 @@ class AnalizadorEtiqueta(
             .distinctBy { it.sugerido ?: it.normalizado }
 
         val barras = codigosBarras.firstNotNullOfOrNull { dinDeCodigoBarras(it) }
-        // Si hay un DIN ISBT 128, los demás números de la etiqueta (lotes, códigos) no compiten
+            ?: codigosBarras.firstNotNullOfOrNull { c -> formatos.firstNotNullOfOrNull { it.canonizar(c.trim()) } }
+        // Prioridad: un DIN ISBT 128; si no, los números que siguen a «Unidad:», «Ext:»…;
+        // así las fechas, lotes y registros sanitarios de la etiqueta no compiten.
         val estrictosTodos = candidatos.filter { it.estricto }
-        val estrictos = (estrictosTodos.filter { it.formato == TipoFormato.ISBT128 }.ifEmpty { estrictosTodos })
+        val estrictos = estrictosTodos.filter { it.formato == TipoFormato.ISBT128 }
+            .ifEmpty { estrictosTodos.filter { it.anclado } }
+            .ifEmpty { estrictosTodos }
             .map { it.normalizado }.distinct()
 
         var propuesto: String? = when {
@@ -93,7 +100,9 @@ class AnalizadorEtiqueta(
             }
         }
         if (candidatos.isEmpty() && barras == null) avisos += AvisoEtiqueta.SIN_IDENTIFICADOR
-        return LecturaEtiqueta(candidatos, propuesto, barras, avisos)
+        val componente = candidatos.firstOrNull { it.normalizado == propuesto && it.componente != null }?.componente
+            ?: codigosBarras.firstNotNullOfOrNull { Regex("^\\*?\\d+([A-Z]{1,2})\\*?$").find(it.trim().uppercase())?.groupValues?.get(1) }
+        return LecturaEtiqueta(candidatos, propuesto, barras, avisos, componente)
     }
 
     companion object {

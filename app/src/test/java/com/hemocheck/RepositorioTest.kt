@@ -51,8 +51,21 @@ class RepositorioTest {
     }
 
     @Test
-    fun `fila sin confirmar queda pendiente y no es coincidencia`() = runBlocking {
+    fun `fila sin revisar y sin problemas es lectura automatica y cuenta como coincidencia`() = runBlocking {
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, confirmada = false, resultados = conv) }))
+        assertEquals(EstadoEntrada.AUTOMATICA, e.repositorio.buscarExacto(id).single().entrada.estado)
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(paginaFicticia(), null, id))!!
+        val s = d.informe.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }
+        assertTrue(EstadoCorroboracion.COINCIDENCIA_EXACTA in s.estados)
+        assertTrue(d.informe.avisos.any { it.tipo == TipoAviso.LECTURA_AUTOMATICA })
+        assertEquals(1, d.registros.size)
+    }
+
+    @Test
+    fun `fila con problemas de lectura queda pendiente y no es coincidencia`() = runBlocking {
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, {
+            fila(it, id, confirmada = false, resultados = conv, problemas = setOf(com.hemocheck.core.analisis.Problema.RESULTADO_AMBIGUO_COLUMNAS))
+        }))
         val vid = e.repositorio.crearVerificacion(paginaFicticia(), null, id)
         val d = e.repositorio.comparacion(vid)!!
         val s = d.informe.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }

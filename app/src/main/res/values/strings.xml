@@ -79,8 +79,8 @@
     <string name="permiso_camara_ajustes">Abrir ajustes de la app</string>
     <string name="camara_titulo_hoja">Hoja de serología</string>
     <string name="camara_titulo_etiqueta">Etiqueta del hemocomponente</string>
-    <string name="camara_indicacion_hoja">Encuadrá la hoja completa dentro del marco, sobre un fondo oscuro. Tocá la pantalla para enfocar.</string>
-    <string name="camara_indicacion_etiqueta">Encuadrá la etiqueta completa, sin reflejos sobre el número de unidad. Tocá para enfocar.</string>
+    <string name="camara_indicacion_hoja">Encuadrá la hoja completa dentro del marco. Tocá la pantalla para enfocar. No hace falta un fondo especial.</string>
+    <string name="camara_indicacion_etiqueta">Encuadrá la bolsa con sus etiquetas, sin reflejos sobre el número de unidad ni el código de barras. Usá el zoom si el número se ve chico.</string>
     <string name="camara_iniciando">Iniciando cámara…</string>
     <string name="camara_lista">Vista previa activa</string>
     <string name="camara_tomar">Tomar foto</string>
@@ -98,9 +98,11 @@
     <string name="flash_linterna">Linterna encendida</string>
     <string name="revision_foto_titulo">Revisá la foto</string>
     <string name="revision_error_ocr">El reconocimiento de texto falló en esta foto. Repetila o cargá los datos a mano.</string>
-    <string name="revision_perspectiva_corregida">Se detectaron los bordes de la hoja y se corrigió la perspectiva para la lectura.</string>
+    <string name="revision_perspectiva_corregida">Se detectaron los bordes de la hoja y se enderezó para leerla mejor. Si se ve deformada, usala sin recortar.</string>
     <string name="revision_sin_avisos">No se detectaron problemas de calidad. Igualmente, revisá que el texto se lea bien.</string>
     <string name="revision_original_conservado">La foto original se conserva sin cambios (cifrada) como evidencia.</string>
+    <string name="revision_usar_sin_recortar">Usar sin recortar (si la hoja se ve deformada)</string>
+    <string name="camara_zoom">Zoom</string>
     <string name="confirmar_otra_pagina">Usar y tomar otra</string>
     <string name="confirmar_terminar">Usar foto y terminar</string>
     <string name="confirmar_continuar">Usar foto</string>
@@ -111,7 +113,7 @@
     <string name="calidad_desenfoque">Posible imagen borrosa o movida: sostené firme el teléfono y tocá para enfocar.</string>
     <string name="calidad_reflejos">Posibles reflejos: inclinalo un poco para que no brille el papel o el plástico.</string>
     <string name="calidad_corte">La hoja toca el borde de la foto: puede haber partes cortadas.</string>
-    <string name="calidad_sin_bordes">No se detectaron los bordes de la hoja; se usó la foto completa. Para mejores resultados, apoyala sobre un fondo oscuro.</string>
+    <string name="calidad_sin_bordes">No se detectaron con seguridad los bordes de la hoja: se usa la foto tal cual, sin enderezar.</string>
     <string name="calidad_texto_ilegible">El texto se reconoció con baja confianza: puede estar ilegible. Revisá con atención o repetí la foto.</string>
     <string name="calidad_sin_texto">No se reconoció texto en la foto.</string>
 
@@ -124,7 +126,9 @@
     <string name="registro_paginas">Páginas capturadas: %1$d</string>
     <string name="registro_fotografiar_primera">Fotografiar hoja</string>
     <string name="registro_fotografiar_otra">Fotografiar otra página</string>
-    <string name="registro_revisar">Revisar datos reconocidos (%1$d filas)</string>
+    <string name="registro_revisar">Revisar filas una por una (opcional, %1$d filas)</string>
+    <string name="registro_guardar_hojas">Guardar hojas (%1$d)</string>
+    <string name="registro_guardar_explicacion">Se guardan sin revisar fila por fila. Al verificar una unidad vas a ver las filas ampliadas para controlarlas vos.</string>
     <string name="registro_nota_cifrado">Las fotos quedan en memoria hasta que guardes el registro; entonces se cifran. Si la app se bloquea antes, se descartan.</string>
     <string name="registro_filas_detectadas">Filas detectadas: %1$d</string>
     <string name="registro_pagina_con_avisos">Con %1$d advertencias</string>
@@ -244,6 +248,8 @@
     <string name="origen_barras">Código de barras</string>
     <string name="origen_ninguno">Sin identificador</string>
     <string name="entrada_confirmada">Revisado y confirmado</string>
+    <string name="entrada_automatica">Leído automáticamente (verificar en la imagen)</string>
+    <string name="aviso_lectura_automatica">%1$s: el número y los resultados se leyeron automáticamente, sin revisión fila por fila. Verificalos en la imagen ampliada.</string>
     <string name="entrada_pendiente">Pendiente de revisión</string>
 
     <!-- Avisos del informe -->
@@ -262,6 +268,16 @@
     <string name="aviso_etiqueta_ilegible">No se pudo leer el identificador de la etiqueta: no se buscaron registros.</string>
     <string name="aviso_etiqueta_error_ocr">El reconocimiento de texto de la etiqueta falló.</string>
     <string name="aviso_etiqueta_sin_ubicacion">No se pudo ubicar el número en la foto de la etiqueta.</string>
+
+    <!-- Collage -->
+    <string name="collage_titulo">Corroboración visual</string>
+    <string name="collage_ayuda">Compará con tus propios ojos el número en las tres imágenes y leé los resultados en las planillas. Tocá una imagen para ampliarla (pellizcá para hacer zoom).</string>
+    <string name="collage_no_encontrado">No se encontró el número %1$s en las hojas guardadas de este tipo.</string>
+    <string name="collage_varios">Hay %1$d registros con este número: revisá cuál corresponde.</string>
+    <string name="collage_pie_registro">Número en la planilla: %1$s · %2$s</string>
+    <string name="collage_pendiente">La lectura de esta fila tuvo problemas: verificá con atención el número y los resultados en la imagen.</string>
+    <string name="collage_ver_pagina">Ver la hoja completa y la foto original</string>
+    <string name="collage_ver_detalle">Ver detalle completo (datos leídos y advertencias)</string>
 
     <!-- Comparación -->
     <string name="comparacion_titulo">Corroboración documental</string>

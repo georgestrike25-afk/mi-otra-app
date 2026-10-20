@@ -199,17 +199,57 @@ object DetectorHoja {
         }
         val esquinas = listOf(tl, tr, br, bl).map { Punto((it % w).toFloat(), (it / w).toFloat()) }
         val areaQuad = areaPoligono(esquinas)
+        val toca = tocaBorde > (w + h) * 0.1
         // La región debe llenar el cuadrilátero (si no, la forma no es una hoja)
         if (areaQuad <= 0 || mejorTam / areaQuad < 0.85 || mejorTam / areaQuad > 1.15) {
-            return DeteccionHoja(null, tocaBorde > (w + h) * 0.1)
+            return DeteccionHoja(null, toca)
         }
+        // Solo se corrige la perspectiva si la detección es claramente confiable; ante la duda
+        // se usa la foto tal cual (una corrección equivocada deformaría el documento).
+        if (!esHojaConfiable(img, region, esquinas)) return DeteccionHoja(null, toca)
         val escalaX = original.ancho.toFloat() / w
         val escalaY = original.alto.toFloat() / h
         return DeteccionHoja(
             esquinas.map { Punto(it.x * escalaX, it.y * escalaY) },
-            tocaBorde = tocaBorde > (w + h) * 0.1,
+            tocaBorde = toca,
         )
     }
+
+    /**
+     * Comprobaciones conservadoras: contraste claro entre hoja y fondo, ángulos casi rectos,
+     * lados opuestos parecidos (perspectiva moderada), proporción de hoja y tamaño suficiente.
+     */
+    internal fun esHojaConfiable(img: ImagenGris, region: IntArray, e: List<Punto>): Boolean {
+        val total = img.ancho.toLong() * img.alto
+        if (region.size < total * 0.25) return false
+        var sumaDentro = 0L
+        for (p in region) sumaDentro += img.pixeles[p].toInt() and 0xFF
+        var sumaTotal = 0L
+        for (i in 0 until total.toInt()) sumaTotal += img.pixeles[i].toInt() and 0xFF
+        val fuera = total - region.size
+        if (fuera <= 0) return false
+        val contraste = sumaDentro.toDouble() / region.size - (sumaTotal - sumaDentro).toDouble() / fuera
+        if (contraste < CONTRASTE_MINIMO) return false
+        fun d(a: Punto, b: Punto) = hypot((a.x - b.x).toDouble(), (a.y - b.y).toDouble())
+        val lados = listOf(d(e[0], e[1]), d(e[1], e[2]), d(e[2], e[3]), d(e[3], e[0]))
+        if (lados.any { it < 10 }) return false
+        if (min(lados[0], lados[2]) / max(lados[0], lados[2]) < 0.75) return false
+        if (min(lados[1], lados[3]) / max(lados[1], lados[3]) < 0.75) return false
+        for (i in 0 until 4) {
+            val a = e[(i + 3) % 4]; val b = e[i]; val c = e[(i + 1) % 4]
+            val v1x = a.x - b.x; val v1y = a.y - b.y; val v2x = c.x - b.x; val v2y = c.y - b.y
+            val cos = (v1x * v2x + v1y * v2y) / (hypot(v1x.toDouble(), v1y.toDouble()) * hypot(v2x.toDouble(), v2y.toDouble()))
+            val grados = Math.toDegrees(kotlin.math.acos(cos.coerceIn(-1.0, 1.0)))
+            if (grados < 70 || grados > 110) return false
+        }
+        val ancho = max(lados[0], lados[2])
+        val alto = max(lados[1], lados[3])
+        val proporcion = max(ancho, alto) / min(ancho, alto)
+        return proporcion in 1.0..1.9
+    }
+
+    /** Diferencia mínima de brillo medio entre la hoja y el fondo para confiar en los bordes. */
+    const val CONTRASTE_MINIMO = 45.0
 
     fun otsu(img: ImagenGris): Int {
         val hist = IntArray(256)

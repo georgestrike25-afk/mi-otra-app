@@ -27,13 +27,19 @@ import kotlin.math.roundToInt
  */
 class Procesador(private val ocr: MotorOcr) {
 
-    suspend fun procesar(jpeg: ByteArray, rotacion: Int, modo: ModoCaptura): PaginaCapturada = withContext(Dispatchers.Default) {
+    /**
+     * [corregirBordes] = false usa la foto tal cual (sin enderezar), p. ej. si la hoja no está
+     * sobre un fondo contrastado y la corrección automática la deformaría.
+     */
+    suspend fun procesar(
+        jpeg: ByteArray, rotacion: Int, modo: ModoCaptura, corregirBordes: Boolean = true,
+    ): PaginaCapturada = withContext(Dispatchers.Default) {
         val avisos = mutableSetOf<AvisoCalidad>()
         val base = decodificar(jpeg, rotacion)
 
         // Bordes de la hoja (en la etiqueta no se corrige la perspectiva: la bolsa no es plana)
         val gris = aGris(base, DetectorHoja.LADO_DETECCION * 2)
-        val deteccion = if (modo == ModoCaptura.HOJA) DetectorHoja.detectar(gris) else null
+        val deteccion = if (modo == ModoCaptura.HOJA && corregirBordes) DetectorHoja.detectar(gris) else null
         var trabajo = base
         if (deteccion != null) {
             if (deteccion.tocaBorde) avisos += AvisoCalidad.POSIBLE_CORTE
@@ -47,6 +53,8 @@ class Procesador(private val ocr: MotorOcr) {
         }
         avisos += AnalizadorCalidad.evaluar(AnalizadorCalidad.medir(aGris(trabajo, AnalizadorCalidad.LADO_ANALISIS)))
 
+        // El OCR lee una copia en escala de grises con más contraste; la imagen que se guarda y
+        // se muestra queda en color (mismas dimensiones, así las coordenadas coinciden).
         var paraOcr = realzar(trabajo)
         var pagina: PaginaOcr? = null
         var errorOcr = false
@@ -56,7 +64,13 @@ class Procesador(private val ocr: MotorOcr) {
             val giro = giroNecesario(pagina)
             if (giro != 0) {
                 paraOcr = rotar(paraOcr, giro)
+                trabajo = rotar(trabajo, giro, reciclar = trabajo !== base)
                 pagina = ocr.reconocer(paraOcr)
+            }
+            // En la etiqueta se hace una segunda lectura sobre la imagen en color y se unen
+            if (modo == ModoCaptura.ETIQUETA) {
+                val color = ocr.reconocer(trabajo)
+                pagina = pagina.copy(lineas = pagina.lineas + color.lineas)
             }
         } catch (e: Exception) {
             errorOcr = true
@@ -65,24 +79,27 @@ class Procesador(private val ocr: MotorOcr) {
             if (pagina.vacia) avisos += AvisoCalidad.SIN_TEXTO
             else if ((pagina.confianzaMedia ?: 1f) < 0.7f) avisos += AvisoCalidad.TEXTO_ILEGIBLE
         }
-        val codigos = if (modo == ModoCaptura.ETIQUETA) runCatching { ocr.codigosDeBarras(base) }.getOrDefault(emptyList()) else emptyList()
+        val codigos = if (modo == ModoCaptura.ETIQUETA) {
+            (runCatching { ocr.codigosDeBarras(trabajo) }.getOrDefault(emptyList()) +
+                runCatching { ocr.codigosDeBarras(paraOcr) }.getOrDefault(emptyList())).distinct()
+        } else emptyList()
 
-        val procesadaJpeg = comprimir(paraOcr)
+        val procesadaJpeg = comprimir(trabajo)
         PaginaCapturada(
             modo = modo,
             jpegOriginal = jpeg,
             rotacion = rotacion,
             jpegProcesada = procesadaJpeg,
-            anchoProcesada = paraOcr.width,
-            altoProcesada = paraOcr.height,
+            anchoProcesada = trabajo.width,
+            altoProcesada = trabajo.height,
             ocr = pagina,
             errorOcr = errorOcr,
             codigosBarras = codigos,
             avisos = avisos,
-            bordesDetectados = deteccion?.esquinas != null,
+            bordesDetectados = deteccion?.esquinas != null && trabajo !== base,
         ).also {
+            if (paraOcr !== trabajo && paraOcr !== base) paraOcr.recycle()
             if (trabajo !== base) trabajo.recycle()
-            if (paraOcr !== base) paraOcr.recycle()
             base.recycle()
         }
     }
@@ -137,9 +154,9 @@ class Procesador(private val ocr: MotorOcr) {
         return salida
     }
 
-    private fun rotar(src: Bitmap, grados: Int): Bitmap =
+    private fun rotar(src: Bitmap, grados: Int, reciclar: Boolean = true): Bitmap =
         Bitmap.createBitmap(src, 0, 0, src.width, src.height, Matrix().apply { postRotate(grados.toFloat()) }, true)
-            .also { if (it !== src) src.recycle() }
+            .also { if (it !== src && reciclar) src.recycle() }
 
     /** Grados para enderezar el texto según la inclinación mediana informada por el OCR. */
     private fun giroNecesario(p: PaginaOcr): Int {

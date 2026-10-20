@@ -27,7 +27,14 @@ enum class EstadoCorroboracion {
 }
 
 @Serializable
-enum class EstadoEntrada { CONFIRMADA, PENDIENTE_REVISION }
+enum class EstadoEntrada {
+    /** Revisada y confirmada fila por fila por el usuario. */
+    CONFIRMADA,
+    /** Leída por OCR sin problemas detectados, sin revisión fila por fila: se verifica en el collage. */
+    AUTOMATICA,
+    /** Con problemas de lectura o asociación: no cuenta como coincidencia. */
+    PENDIENTE_REVISION,
+}
 
 /** Registro de serología guardado, con lo necesario para corroborar. */
 data class RegistroAlmacenado(
@@ -77,6 +84,7 @@ enum class TipoAviso {
     ETIQUETA_ILEGIBLE,
     ETIQUETA_ERROR_OCR,
     ETIQUETA_SIN_UBICACION,
+    LECTURA_AUTOMATICA,
 }
 
 /** Aviso concreto con sus datos (el texto lo arma la interfaz). */
@@ -159,7 +167,7 @@ class MotorCorroboracion(
         val filas = mutableListOf<FilaDeterminacion>()
         for (tipo in TipoRegistro.entries) {
             val delTipo = coincidentes.filter { it.tipo == tipo }
-            val confirmadas = delTipo.filter { it.estado == EstadoEntrada.CONFIRMADA }
+            val confirmadas = delTipo.filter { it.estado == EstadoEntrada.CONFIRMADA || it.estado == EstadoEntrada.AUTOMATICA }
             val pendientes = delTipo.filter { it.estado == EstadoEntrada.PENDIENTE_REVISION }
             val estadosSeccion = mutableListOf<EstadoCorroboracion>()
             fun aviso(e: EstadoCorroboracion, t: TipoAviso, detalle: String? = null) {
@@ -183,6 +191,9 @@ class MotorCorroboracion(
                         aviso(EstadoCorroboracion.PENDIENTE_REVISION, TipoAviso.PENDIENTES_ADEMAS, pendientes.size.toString())
                     }
                 }
+            }
+            if (confirmadas.any { it.estado == EstadoEntrada.AUTOMATICA }) {
+                aviso(EstadoCorroboracion.PENDIENTE_REVISION, TipoAviso.LECTURA_AUTOMATICA)
             }
             for (r in confirmadas) {
                 if (!r.imagenDisponible) aviso(EstadoCorroboracion.NO_VERIFICABLE, TipoAviso.SIN_IMAGEN)

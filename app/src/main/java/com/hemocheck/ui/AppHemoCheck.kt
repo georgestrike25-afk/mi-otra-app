@@ -14,6 +14,7 @@ import com.hemocheck.ui.ajustes.PantallaAjustes
 import com.hemocheck.ui.ayuda.PantallaAyuda
 import com.hemocheck.ui.bloqueo.PantallaBloqueo
 import com.hemocheck.ui.camara.PantallaCamara
+import com.hemocheck.ui.comparacion.PantallaCollage
 import com.hemocheck.ui.comparacion.PantallaComparacion
 import com.hemocheck.ui.etiqueta.PantallaRevisionEtiqueta
 import com.hemocheck.ui.historial.PantallaEntrada
@@ -29,6 +30,7 @@ object Rutas {
     const val REVISION_SEROLOGIA = "revision_serologia"
     const val REVISION_ETIQUETA = "revision_etiqueta"
     const val COMPARACION = "comparacion/{id}"
+    const val DETALLE = "detalle/{id}"
     const val HISTORIAL = "historial"
     const val ENTRADA = "entrada/{id}"
     const val AJUSTES = "ajustes"
@@ -36,6 +38,7 @@ object Rutas {
 
     fun camara(m: ModoCaptura) = "camara/${m.name}"
     fun comparacion(id: Long) = "comparacion/$id"
+    fun detalle(id: Long) = "detalle/$id"
     fun entrada(id: Long) = "entrada/$id"
 }
 
@@ -111,7 +114,22 @@ fun AppHemoCheck(contenedor: Contenedor, biometriaDisponible: () -> Boolean, onP
                 onAtras = { nav.popBackStack(Rutas.INICIO, inclusive = false) },
             )
         }
+        // Collage de tres filas (pantalla principal de la corroboración)
         composable(Rutas.COMPARACION, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entrada ->
+            val id = entrada.arguments?.getLong("id") ?: 0L
+            PantallaCollage(
+                contenedor = contenedor,
+                verificacionId = id,
+                onDetalle = { nav.navigate(Rutas.detalle(id)) },
+                onAbrirEntrada = { nav.navigate(Rutas.entrada(it)) },
+                onAtras = { nav.popBackStack() },
+                onNuevaVerificacion = {
+                    contenedor.borradores.descartarEtiqueta()
+                    nav.navigate(Rutas.camara(ModoCaptura.ETIQUETA)) { popUpTo(Rutas.INICIO) }
+                },
+            )
+        }
+        composable(Rutas.DETALLE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entrada ->
             PantallaComparacion(
                 contenedor = contenedor,
                 verificacionId = entrada.arguments?.getLong("id") ?: 0L,

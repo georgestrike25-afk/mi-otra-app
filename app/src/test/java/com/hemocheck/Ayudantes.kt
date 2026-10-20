@@ -71,10 +71,13 @@ fun resultado(clave: String, texto: String, categoria: CategoriaResultado) = Res
     clave = clave, nombre = clave, texto = texto, textoOcr = texto, categoria = categoria, origen = OrigenDato.OCR,
 )
 
-fun fila(pagina: PaginaCapturada, id: String, confirmada: Boolean = true, resultados: List<ResultadoEditable>, idOcr: String? = id) = FilaEditable(
+fun fila(
+    pagina: PaginaCapturada, id: String, confirmada: Boolean = true, resultados: List<ResultadoEditable>, idOcr: String? = id,
+    problemas: Set<com.hemocheck.core.analisis.Problema> = emptySet(),
+) = FilaEditable(
     paginaUid = pagina.uid, idTexto = id, idOcr = idOcr, sugerido = null, origenId = OrigenDato.OCR,
     cajaId = Caja(100, 400, 400, 430), cajaFila = Caja(100, 400, 1800, 430), cajaEncabezados = Caja(700, 300, 1800, 330),
-    fecha = "2026-10-15", validacion = null, problemas = emptySet(), resultados = resultados, confirmada = confirmada,
+    fecha = "2026-10-15", validacion = null, problemas = problemas, resultados = resultados, confirmada = confirmada,
 )
 
 fun borrador(tipo: TipoRegistro, vararg filas: (PaginaCapturada) -> FilaEditable): EstadoBorradorSerologia {

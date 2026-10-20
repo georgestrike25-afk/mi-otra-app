@@ -141,7 +141,12 @@ class Repositorio(
             else -> OrigenDato.OCR
         }
         val sinDeterminacion = f.resultados.any { it.clave == AnalizadorHoja.CLAVE_DESCONOCIDA }
-        val estado = if (f.confirmada && !sinDeterminacion) EstadoEntrada.CONFIRMADA else EstadoEntrada.PENDIENTE_REVISION
+        val estado = when {
+            f.confirmada && !sinDeterminacion -> EstadoEntrada.CONFIRMADA
+            // Sin revisión fila por fila: si la lectura no tuvo problemas, se usa y se verifica en el collage
+            origen == OrigenDato.OCR && !f.tieneBloqueantes && !sinDeterminacion && f.resultados.isNotEmpty() -> EstadoEntrada.AUTOMATICA
+            else -> EstadoEntrada.PENDIENTE_REVISION
+        }
         val corr = mutableListOf<CorreccionEntidad>()
         fun c(campo: String, antes: String?, despues: String?) {
             corr += CorreccionEntidad(entradaId = null, verificacionId = null, campo = campo, valorAnterior = antes, valorNuevo = despues, fecha = ahora, vence = vence)

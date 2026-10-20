@@ -24,6 +24,13 @@ data class OcurrenciaId(
     val indiceLinea: Int,
     val rango: IntRange,
     val formato: TipoFormato,
+    /** Aparece a continuación de una palabra clave («Unidad:», «Ext:», «Donación:»…). */
+    val anclado: Boolean = false,
+    /**
+     * Letra de componente que sigue al número local (p. ej. «G» en 295216G). No forma parte
+     * del identificador de búsqueda: la serología es de la donación, común a todos sus componentes.
+     */
+    val componente: String? = null,
 )
 
 enum class TipoFormato { ISBT128, NUMERICO, PERSONALIZADO }
@@ -83,8 +90,15 @@ object IdUnidad {
         for (o in todas) {
             if (elegidas.none { it.rango.first <= o.rango.last && o.rango.first <= it.rango.last }) elegidas += o
         }
-        return elegidas.sortedBy { it.rango.first }
+        val mayus = mayusculas(linea)
+        return elegidas.sortedBy { it.rango.first }.map { o ->
+            val antes = mayus.substring(maxOf(0, o.rango.first - 24), o.rango.first)
+            if (PALABRA_CLAVE.containsMatchIn(antes)) o.copy(anclado = true) else o
+        }
     }
+
+    /** Palabra clave inmediatamente antes del número («Unidad:», «Ext:», «N° de donación»…). */
+    private val PALABRA_CLAVE = Regex("(?<![A-Z])(UNIDAD|EXT|EXTRACCION|DONACION|DIN|N[°º.]|NRO\\.?|NUMERO)\\s*(DE\\s+(UNIDAD|DONACION|EXTRACCION))?\\s*[:.#]?\\s*$")
 
     internal fun mayusculas(linea: TextoLinea): String =
         String(CharArray(linea.textoNormalizado.length) { linea.textoNormalizado[it].uppercaseChar() })
@@ -189,14 +203,14 @@ object FormatoIsbt128 : FormatoIdentificador {
 class FormatoNumerico(val minimo: Int, val maximo: Int) : FormatoIdentificador {
     override val tipo = TipoFormato.NUMERICO
 
-    private val estricto = Regex("(?<![0-9A-Z])\\d(?:-?\\d){${minimo - 1},${maximo - 1}}(?![0-9A-Z])")
+    // Número con guiones opcionales y, opcionalmente, una o dos letras de componente (295216G)
+    private val estricto = Regex("(?<![0-9A-Z])(\\d(?:-?\\d){${minimo - 1},${maximo - 1}})([A-Z]{1,2})?(?![0-9A-Z])")
+    private val completo = Regex("^\\*?(\\d{$minimo,$maximo})([A-Z]{1,2})?\\*?$")
     private val D = Confusiones.CLASE_DIGITO
     private val tolerante = Regex("(?<![0-9A-Z])$D(?:-?$D){${minimo - 1},${maximo - 1}}(?![0-9A-Z])")
 
-    override fun canonizar(texto: String): String? {
-        val n = IdUnidad.normalizar(texto)
-        return if (n.length in minimo..maximo && n.all { it.isDigit() }) n else null
-    }
+    /** Forma canónica: solo los dígitos (sin la letra de componente ni los asteriscos del código de barras). */
+    override fun canonizar(texto: String): String? = completo.find(IdUnidad.normalizar(texto))?.groupValues?.get(1)
 
     override fun buscar(linea: TextoLinea): List<OcurrenciaId> {
         val texto = IdUnidad.mayusculas(linea)
@@ -204,8 +218,9 @@ class FormatoNumerico(val minimo: Int, val maximo: Int) : FormatoIdentificador {
         for (m in estricto.findAll(texto)) {
             val frag = linea.fragmento(m.range.first, m.range.last + 1)
             resultado += OcurrenciaId(
-                frag.texto, IdUnidad.normalizar(m.value), true, null, null,
+                frag.texto, IdUnidad.normalizar(m.groupValues[1]), true, null, null,
                 frag.caja, frag.confianza, linea.indiceLinea, m.range, tipo,
+                componente = m.groups[2]?.value,
             )
         }
         for (m in tolerante.findAll(texto)) {

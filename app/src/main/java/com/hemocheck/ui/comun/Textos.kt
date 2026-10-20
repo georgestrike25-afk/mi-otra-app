@@ -84,6 +84,7 @@ fun textoOrigen(o: OrigenDato?): Int = when (o) {
 
 fun textoEstadoEntrada(e: EstadoEntrada): Int = when (e) {
     EstadoEntrada.CONFIRMADA -> R.string.entrada_confirmada
+    EstadoEntrada.AUTOMATICA -> R.string.entrada_automatica
     EstadoEntrada.PENDIENTE_REVISION -> R.string.entrada_pendiente
 }
 
@@ -156,6 +157,7 @@ fun textoAviso(a: AvisoCorroboracion): String {
         TipoAviso.ETIQUETA_ILEGIBLE -> stringResource(R.string.aviso_etiqueta_ilegible)
         TipoAviso.ETIQUETA_ERROR_OCR -> stringResource(R.string.aviso_etiqueta_error_ocr)
         TipoAviso.ETIQUETA_SIN_UBICACION -> stringResource(R.string.aviso_etiqueta_sin_ubicacion)
+        TipoAviso.LECTURA_AUTOMATICA -> stringResource(R.string.aviso_lectura_automatica, tipo)
     }
 }
 

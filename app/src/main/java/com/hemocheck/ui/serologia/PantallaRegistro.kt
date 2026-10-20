@@ -31,6 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
+import com.hemocheck.datos.ArchivosCifrados
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -62,6 +66,28 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
     val b by contenedor.borradores.serologia.collectAsStateWithLifecycle()
     val ultimo by contenedor.borradores.ultimoLote.collectAsStateWithLifecycle()
     var confirmarSalida by remember { mutableStateOf(false) }
+    var guardando by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<Int?>(null) }
+    val alcance = rememberCoroutineScope()
+
+    // Guarda las hojas sin revisión fila por fila: se verifican después, en el collage
+    fun guardar() {
+        guardando = true
+        error = null
+        alcance.launch(Dispatchers.Main) {
+            try {
+                val actual = contenedor.borradores.serologia.value
+                val id = contenedor.repositorio.guardarSerologia(actual)
+                contenedor.borradores.loteGuardado(id, actual.tipo)
+            } catch (e: ArchivosCifrados.SinEspacioException) {
+                error = R.string.error_sin_espacio
+            } catch (e: Exception) {
+                error = R.string.error_guardar
+            } finally {
+                guardando = false
+            }
+        }
+    }
 
     val salir = {
         if (b.paginas.isNotEmpty()) confirmarSalida = true
@@ -124,7 +150,17 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(if (b.paginas.isEmpty()) R.string.registro_fotografiar_primera else R.string.registro_fotografiar_otra))
             }
-            Button(onClick = onRevisar, enabled = b.paginas.isNotEmpty(), modifier = Modifier.fillMaxWidth().testTag("boton_revisar")) {
+            error?.let { Aviso(stringResource(it), Gravedad.PELIGRO) }
+            Button(
+                onClick = { guardar() },
+                enabled = b.paginas.isNotEmpty() && !guardando,
+                modifier = Modifier.fillMaxWidth().testTag("boton_guardar_hojas"),
+            ) {
+                if (guardando) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Text(stringResource(R.string.registro_guardar_hojas, b.paginas.size))
+            }
+            if (b.paginas.isNotEmpty()) Text(stringResource(R.string.registro_guardar_explicacion), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = onRevisar, enabled = b.paginas.isNotEmpty() && !guardando, modifier = Modifier.fillMaxWidth().testTag("boton_revisar")) {
                 Text(stringResource(R.string.registro_revisar, b.filas.size))
             }
             Aviso(stringResource(R.string.registro_nota_cifrado), Gravedad.INFO)

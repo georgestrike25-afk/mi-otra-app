@@ -60,6 +60,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,6 +68,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -188,6 +190,7 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
     var errorCamara by remember { mutableStateOf<Int?>(null) }
     var flash by remember { mutableStateOf(ModoFlash.APAGADO) }
     var tieneFlash by remember { mutableStateOf(false) }
+    var zoom by remember { mutableFloatStateOf(0f) }
     val ref = remember { RefCamara() }
     val ejecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
@@ -316,6 +319,19 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
         })
     }
 
+    /** Vuelve a procesar la misma foto sin enderezar la hoja (si la corrección la deformó). */
+    fun usarSinRecortar(p: PaginaCapturada) {
+        estado = EstadoCaptura.Procesando
+        alcance.launch(Dispatchers.Main) {
+            estado = try {
+                val nueva = contenedor.procesador.procesar(p.jpegOriginal, p.rotacion, modo, corregirBordes = false)
+                EstadoCaptura.Revision(nueva, withContext(Dispatchers.Default) { decodificarVista(nueva.jpegProcesada) })
+            } catch (e: Throwable) {
+                EstadoCaptura.Error(R.string.camara_error_procesar)
+            }
+        }
+    }
+
     fun confirmar(p: PaginaCapturada, terminar: Boolean) {
         val formatos = contenedor.ajustes.identificadores.formatos()
         alcance.launch(Dispatchers.Main) {
@@ -402,6 +418,18 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
             errorCamara?.let { Aviso(stringResource(it), Gravedad.PELIGRO) }
             val indicacion = if (modo == ModoCaptura.HOJA) R.string.camara_indicacion_hoja else R.string.camara_indicacion_etiqueta
             Text(stringResource(indicacion), color = Color.White, style = MaterialTheme.typography.bodySmall)
+            // Zoom de la cámara (útil para acercar el número de la etiqueta sin perder enfoque)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.camara_zoom), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                Slider(
+                    value = zoom,
+                    onValueChange = { v ->
+                        zoom = v
+                        ref.camara?.cameraControl?.setLinearZoom(v)
+                    },
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp).testTag("zoom_camara"),
+                )
+            }
             avisosVivo.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 if (modo == ModoCaptura.HOJA) {
@@ -435,6 +463,7 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                 vistaPrevia = e.vistaPrevia,
                 modo = modo,
                 onRepetir = { estado = EstadoCaptura.Vista },
+                onSinRecortar = { usarSinRecortar(e.pagina) },
                 onConfirmar = { terminar -> confirmar(e.pagina, terminar) },
             )
             is EstadoCaptura.Error -> Box(Modifier.fillMaxSize().background(Color(0xDD000000)).padding(24.dp), contentAlignment = Alignment.Center) {
@@ -455,6 +484,7 @@ private fun RevisionFoto(
     vistaPrevia: Bitmap,
     modo: ModoCaptura,
     onRepetir: () -> Unit,
+    onSinRecortar: () -> Unit,
     onConfirmar: (terminar: Boolean) -> Unit,
 ) {
     val imagen = remember(vistaPrevia) { vistaPrevia.asImageBitmap() }
@@ -470,7 +500,12 @@ private fun RevisionFoto(
         )
         Column(Modifier.verticalScroll(rememberScrollState()).weight(0.45f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (pagina.errorOcr) Aviso(stringResource(R.string.revision_error_ocr), Gravedad.PELIGRO)
-            if (modo == ModoCaptura.HOJA && pagina.bordesDetectados) Aviso(stringResource(R.string.revision_perspectiva_corregida), Gravedad.INFO)
+            if (modo == ModoCaptura.HOJA && pagina.bordesDetectados) {
+                Aviso(stringResource(R.string.revision_perspectiva_corregida), Gravedad.INFO)
+                OutlinedButton(onClick = onSinRecortar, modifier = Modifier.fillMaxWidth().testTag("boton_sin_recortar")) {
+                    Text(stringResource(R.string.revision_usar_sin_recortar))
+                }
+            }
             pagina.avisos.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
             if (pagina.avisos.isEmpty() && !pagina.errorOcr) Aviso(stringResource(R.string.revision_sin_avisos), Gravedad.CORRECTO)
             Aviso(stringResource(R.string.revision_original_conservado), Gravedad.INFO)
@@ -493,7 +528,7 @@ private fun RevisionFoto(
 @Composable
 private fun GuiaEncuadre(modo: ModoCaptura) {
     Canvas(Modifier.fillMaxSize()) {
-        val proporcion = if (modo == ModoCaptura.HOJA) 1.414f else 0.62f
+        val proporcion = if (modo == ModoCaptura.HOJA) 1.414f else 1.3f
         val ancho = size.width * 0.86f
         val alto = (ancho * proporcion).coerceAtMost(size.height * 0.72f)
         val anchoFinal = alto / proporcion
