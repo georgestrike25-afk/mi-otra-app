@@ -42,6 +42,36 @@ class FlujoSinteticoTest {
         return ByteArrayOutputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it); it.toByteArray() }
     }
 
+    /** Planilla con el formato del servicio, fotografiada de costado (girada 90°). Datos ficticios. */
+    @Test
+    fun planillaDelServicioFotografiadaDeCostado() = runBlocking {
+        assertNotNull(app.contenedor)
+        val apaisada = Bitmap.createBitmap(2400, 1500, Bitmap.Config.ARGB_8888)
+        val lienzo = Canvas(apaisada)
+        lienzo.drawColor(Color.WHITE)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textSize = 30f }
+        val columnas = listOf("HIV Ag/Ac", "Anti-HTLV I+II", "Anti-HVC", "AgHBs", "Anti-HBc", "Chagas EIA", "Chagas CMIA", "SIFILIS", "Brucelosis")
+        lienzo.drawText("Referencia", 40f, 150f, p)
+        lienzo.drawText("Estado", 220f, 150f, p)
+        columnas.forEachIndexed { i, c -> lienzo.drawText(c, 380f + i * 220f, 150f, p) }
+        for (f in 0 until 12) {
+            val y = 230f + f * 60f
+            lienzo.drawText("9001%02d".format(f + 1), 40f, y, p)
+            lienzo.drawText("Apto", 220f, y, p)
+            columnas.indices.forEach { i -> lienzo.drawText(if (f == 3 && i == 1) "REACTIVO" else "NO REACTIVO", 380f + i * 220f, y, p) }
+        }
+        // Foto de costado: la hoja apaisada queda vertical en el teléfono
+        val girada = Bitmap.createBitmap(apaisada, 0, 0, apaisada.width, apaisada.height, android.graphics.Matrix().apply { postRotate(90f) }, true)
+        val jpeg = ByteArrayOutputStream().use { girada.compress(Bitmap.CompressFormat.JPEG, 95, it); it.toByteArray() }
+        val pagina = c.procesador.procesar(jpeg, 0, ModoCaptura.HOJA)
+        val analisis = AnalizadorHoja(c.ajustes.identificadores.formatos()).analizar(pagina.ocr!!, TipoRegistro.CONVENCIONAL)
+        val ids = analisis.entradas.map { it.ocurrencia.normalizado }
+        assertTrue("OCR leyó: $ids", ids.count { it.startsWith("9001") } >= 10)
+        val cuarta = analisis.entradas.firstOrNull { it.ocurrencia.normalizado == "900104" }
+        assertNotNull("No se encontró la unidad 900104: $ids", cuarta)
+        assertEquals(CategoriaResultado.REACTIVO, cuarta!!.resultados.firstOrNull { it.clave == "HTLV" }?.categoria)
+    }
+
     @Test
     fun ocrBusquedaYCorroboracionConDocumentosFicticios() = runBlocking {
         assertNotNull("El almacenamiento protegido debe abrirse", app.contenedor)

@@ -101,7 +101,7 @@ class AnalizadorHoja(
         fun mismaFila(a: Caja, b: Caja): Boolean = abs(yc(a) - yc(b)) <= 0.6f * max(a.alto, b.alto)
 
         // 1. Identificadores, determinaciones, frases de resultado y fechas
-        val ids = lineas.flatMap { IdUnidad.buscarEnLinea(it, formatos) }
+        val ids = soloColumnaDeReferencia(lineas.flatMap { IdUnidad.buscarEnLinea(it, formatos) })
         val dets = mutableListOf<Det>()
         val frases = mutableListOf<Res>()
         val fechas = mutableListOf<Pair<String, TextoLinea.Fragmento>>()
@@ -175,6 +175,28 @@ class AnalizadorHoja(
             else -> Disposicion.DESCONOCIDA
         }
         return HojaAnalizada(tipo, disposicion, entradasFinales, avisos, fechaPagina, validacionPagina, sueltos)
+    }
+
+    /**
+     * En una tabla, los números de unidad están alineados en una columna («Referencia»). Los
+     * números sueltos en otras columnas (p. ej. lotes de reactivos de 6 dígitos bajo el
+     * encabezado) se descartan, pero solo si son una minoría clara: si hay dos columnas de
+     * unidades parecidas (dos tablas lado a lado), no se descarta nada.
+     */
+    private fun soloColumnaDeReferencia(ids: List<OcurrenciaId>): List<OcurrenciaId> {
+        val conCaja = ids.filter { it.caja != null }
+        if (conCaja.size < 4) return ids
+        val anchoMedio = conCaja.map { it.caja!!.ancho }.sorted()[conCaja.size / 2].coerceAtLeast(1)
+        // Agrupa por posición horizontal (dentro de un ancho de número)
+        val grupos = mutableListOf<MutableList<OcurrenciaId>>()
+        for (o in conCaja.sortedBy { it.caja!!.izq }) {
+            val g = grupos.lastOrNull()
+            if (g != null && abs(o.caja!!.izq - g.first().caja!!.izq) <= anchoMedio) g += o else grupos += mutableListOf(o)
+        }
+        val principal = grupos.maxBy { it.size }
+        val resto = conCaja.size - principal.size
+        if (resto == 0 || resto > conCaja.size * 0.25) return ids
+        return ids.filter { it.caja == null || it in principal }
     }
 
     /** La página tiene un único identificador (puede repetirse, p. ej. en encabezado y pie). */
