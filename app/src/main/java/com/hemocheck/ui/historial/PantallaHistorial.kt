@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -55,9 +54,8 @@ fun PantallaHistorial(
 ) {
     var pestana by remember { mutableIntStateOf(0) }
     var busqueda by remember { mutableStateOf("") }
-    var soloPendientes by remember { mutableStateOf(false) }
     val flujoVerif = remember { contenedor.repositorio.observarVerificaciones() }
-    val flujoEntradas = remember(soloPendientes) { contenedor.repositorio.observarEntradas(soloPendientes) }
+    val flujoEntradas = remember { contenedor.repositorio.observarEntradas(false) }
     val verificaciones by flujoVerif.collectAsStateWithLifecycle(emptyList())
     val entradas by flujoEntradas.collectAsStateWithLifecycle(emptyList())
     // Búsqueda EXACTA por identificador canonizado (sin coincidencias aproximadas)
@@ -102,9 +100,6 @@ fun PantallaHistorial(
                     }
                 }
             } else {
-                Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = soloPendientes, onClick = { soloPendientes = !soloPendientes }, label = { Text(stringResource(R.string.historial_solo_pendientes)) })
-                }
                 val lista = entradas.filter { idBuscado == null || it.idNormalizado == idBuscado }
                 if (lista.isEmpty()) Text(stringResource(R.string.historial_vacio), Modifier.padding(16.dp))
                 LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -114,9 +109,6 @@ fun PantallaHistorial(
                                 TextoId(e.idNormalizado)
                                 Text("${stringResource(textoTipo(e.tipo))} · ${stringResource(textoEstadoEntrada(e.estado))}", style = MaterialTheme.typography.bodyMedium)
                                 Text(stringResource(R.string.historial_incorporado, formatearFecha(e.creado)), style = MaterialTheme.typography.bodySmall)
-                                if (e.estado == EstadoEntrada.PENDIENTE_REVISION) {
-                                    EtiquetaEstado(EstadoCorroboracion.PENDIENTE_REVISION)
-                                }
                             }
                         }
                     }

@@ -248,7 +248,7 @@
     <string name="origen_barras">Código de barras</string>
     <string name="origen_ninguno">Sin identificador</string>
     <string name="entrada_confirmada">Revisado y confirmado</string>
-    <string name="entrada_automatica">Leído automáticamente (verificar en la imagen)</string>
+    <string name="entrada_automatica">Guardado sin revisión fila por fila</string>
     <string name="aviso_lectura_automatica">%1$s: el número y los resultados se leyeron automáticamente, sin revisión fila por fila. Verificalos en la imagen ampliada.</string>
     <string name="entrada_pendiente">Pendiente de revisión</string>
 
@@ -281,7 +281,7 @@
     <string name="collage_ayuda">Compará con tus propios ojos el número en las tres imágenes y leé los resultados en las planillas. Tocá una imagen para ampliarla (pellizcá para hacer zoom).</string>
     <string name="collage_no_encontrado">No se encontró el número %1$s en las hojas guardadas de este tipo.</string>
     <string name="collage_varios">Hay %1$d registros con este número: revisá cuál corresponde.</string>
-    <string name="collage_pie_registro">Número en la planilla: %1$s · %2$s</string>
+    <string name="collage_pie_registro">Número en la planilla: %1$s</string>
     <string name="collage_pendiente">La lectura de esta fila tuvo problemas: verificá con atención el número y los resultados en la imagen.</string>
     <string name="collage_ver_pagina">Ver la hoja completa y la foto original</string>
     <string name="collage_ver_detalle">Ver detalle completo (datos leídos y advertencias)</string>

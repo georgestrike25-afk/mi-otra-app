@@ -57,20 +57,19 @@ class RepositorioTest {
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(paginaFicticia(), null, id))!!
         val s = d.informe.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }
         assertTrue(EstadoCorroboracion.COINCIDENCIA_EXACTA in s.estados)
-        assertTrue(d.informe.avisos.any { it.tipo == TipoAviso.LECTURA_AUTOMATICA })
+        assertFalse(EstadoCorroboracion.PENDIENTE_REVISION in d.informe.estados)
         assertEquals(1, d.registros.size)
     }
 
     @Test
-    fun `fila con problemas de lectura queda pendiente y no es coincidencia`() = runBlocking {
+    fun `fila con dudas de lectura igual se guarda y se muestra para verificarla en el collage`() = runBlocking {
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, {
             fila(it, id, confirmada = false, resultados = conv, problemas = setOf(com.hemocheck.core.analisis.Problema.RESULTADO_AMBIGUO_COLUMNAS))
         }))
-        val vid = e.repositorio.crearVerificacion(paginaFicticia(), null, id)
-        val d = e.repositorio.comparacion(vid)!!
-        val s = d.informe.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }
-        assertTrue(EstadoCorroboracion.PENDIENTE_REVISION in s.estados)
-        assertFalse(EstadoCorroboracion.COINCIDENCIA_EXACTA in s.estados)
+        assertEquals(EstadoEntrada.AUTOMATICA, e.repositorio.buscarExacto(id).single().entrada.estado)
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(paginaFicticia(), null, id))!!
+        assertEquals(1, d.registros.size)
+        assertTrue(EstadoCorroboracion.COINCIDENCIA_EXACTA in d.informe.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }.estados)
     }
 
     @Test

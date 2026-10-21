@@ -88,13 +88,14 @@ class EtiquetaLocalTest {
     }
 
     @Test
-    fun `lectura automatica cuenta como coincidencia con aviso`() {
+    fun `lectura automatica cuenta como coincidencia sin aviso de pendiente`() {
         val reg = RegistroAlmacenado(1, TipoRegistro.CONVENCIONAL, "900123", EstadoEntrada.AUTOMATICA,
             listOf(ResultadoAlmacenado("HIV", "NR", CategoriaResultado.NO_REACTIVO)), true, true)
         val inf = MotorCorroboracion().corroborar(SolicitudCorroboracion("900123"), listOf(reg))
         val s = inf.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }
         assertTrue(EstadoCorroboracion.COINCIDENCIA_EXACTA in s.estados)
-        assertTrue(inf.avisos.any { it.tipo == TipoAviso.LECTURA_AUTOMATICA })
+        assertFalse(EstadoCorroboracion.PENDIENTE_REVISION in inf.estados)
+        assertFalse(inf.avisos.any { it.tipo == TipoAviso.LECTURA_AUTOMATICA })
     }
 
     private fun imagen(w: Int, h: Int, f: (Int, Int) -> Int) =

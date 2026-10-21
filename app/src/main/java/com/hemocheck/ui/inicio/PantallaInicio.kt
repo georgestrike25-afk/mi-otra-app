@@ -53,8 +53,6 @@ fun PantallaInicio(
     onAyuda: () -> Unit,
     onBloquear: () -> Unit,
 ) {
-    val flujoPendientes = remember { contenedor.repositorio.observarConteo(EstadoEntrada.PENDIENTE_REVISION) }
-    val pendientes by flujoPendientes.collectAsStateWithLifecycle(0)
     Scaffold(topBar = {
         Barra(stringResource(R.string.app_name), onAtras = null) {
             IconButton(onClick = onAyuda) { Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = stringResource(R.string.ayuda)) }
@@ -73,7 +71,6 @@ fun PantallaInicio(
             Opcion(Icons.Filled.QrCodeScanner, R.string.inicio_verificar, R.string.inicio_verificar_desc, "opcion_verificar", onVerificar)
             Opcion(Icons.Filled.History, R.string.inicio_historial, R.string.inicio_historial_desc, "opcion_historial", onHistorial)
             Opcion(Icons.Filled.Settings, R.string.inicio_configuracion, R.string.inicio_configuracion_desc, "opcion_configuracion", onAjustes)
-            if (pendientes > 0) Aviso(stringResource(R.string.inicio_pendientes, pendientes), Gravedad.ADVERTENCIA)
             Aviso(stringResource(R.string.limite_clinico_corto), Gravedad.INFO)
         }
     }

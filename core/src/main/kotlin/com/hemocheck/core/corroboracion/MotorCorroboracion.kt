@@ -192,9 +192,6 @@ class MotorCorroboracion(
                     }
                 }
             }
-            if (confirmadas.any { it.estado == EstadoEntrada.AUTOMATICA }) {
-                aviso(EstadoCorroboracion.PENDIENTE_REVISION, TipoAviso.LECTURA_AUTOMATICA)
-            }
             for (r in confirmadas) {
                 if (!r.imagenDisponible) aviso(EstadoCorroboracion.NO_VERIFICABLE, TipoAviso.SIN_IMAGEN)
                 else if (!r.tieneUbicacionId) aviso(EstadoCorroboracion.NO_VERIFICABLE, TipoAviso.SIN_UBICACION)

@@ -47,7 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hemocheck.Contenedor
 import com.hemocheck.R
-import com.hemocheck.core.corroboracion.EstadoEntrada
 import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.datos.DatosComparacion
 import com.hemocheck.datos.RegistroEncontrado
@@ -60,7 +59,6 @@ import com.hemocheck.ui.comun.ImagenAmpliable
 import com.hemocheck.ui.comun.TextoId
 import com.hemocheck.ui.comun.formatearFecha
 import com.hemocheck.ui.comun.formatearId
-import com.hemocheck.ui.comun.textoEstadoEntrada
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -235,11 +233,7 @@ private fun RegistrosDeTipo(
                 }
             }
         }
-        Text(
-            stringResource(R.string.collage_pie_registro, formatearId(e.idNormalizado), stringResource(textoEstadoEntrada(e.estado))),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (e.estado == EstadoEntrada.PENDIENTE_REVISION) Aviso(stringResource(R.string.collage_pendiente), Gravedad.ADVERTENCIA)
+        Text(stringResource(R.string.collage_pie_registro, formatearId(e.idNormalizado)), style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { onAbrirEntrada(e.id) }) { Text(stringResource(R.string.collage_ver_pagina)) }
     }
 }
