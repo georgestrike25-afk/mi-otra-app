@@ -270,6 +270,13 @@
     <string name="aviso_etiqueta_sin_ubicacion">No se pudo ubicar el número en la foto de la etiqueta.</string>
 
     <!-- Collage -->
+    <string name="collage_alerta_titulo">ATENCIÓN: REACTIVO / NO APTO DOCUMENTADO</string>
+    <string name="collage_alerta_texto">La planilla documenta un resultado reactivo o «No Apto» para esta unidad. Revisá las filas marcadas en rojo y seguí los procedimientos del servicio.</string>
+    <string name="collage_recorte_compacto">Número de unidad y estado en la planilla (fila marcada)</string>
+    <string name="collage_planilla_dice">La planilla dice: «%1$s»</string>
+    <string name="collage_reactivo">REACTIVO documentado: %1$s</string>
+    <string name="collage_ver_fila">Ver la fila completa con todas las determinaciones</string>
+    <string name="collage_ocultar_fila">Ocultar la fila completa</string>
     <string name="collage_titulo">Corroboración visual</string>
     <string name="collage_ayuda">Compará con tus propios ojos el número en las tres imágenes y leé los resultados en las planillas. Tocá una imagen para ampliarla (pellizcá para hacer zoom).</string>
     <string name="collage_no_encontrado">No se encontró el número %1$s en las hojas guardadas de este tipo.</string>

@@ -1,6 +1,19 @@
 package com.hemocheck.ui.comparacion
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.graphics.Color
+import com.hemocheck.core.analisis.EstadoPlanilla
+import com.hemocheck.core.analisis.FilaCompacta
+import com.hemocheck.core.ocr.PaginaOcr
+import com.hemocheck.core.resultado.CategoriaResultado
+import com.hemocheck.imagen.recortarConMarca
+import com.hemocheck.ui.comun.Etiqueta
+import com.hemocheck.ui.tema.LocalColoresEstado
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -39,7 +52,6 @@ import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.datos.DatosComparacion
 import com.hemocheck.datos.RegistroEncontrado
 import com.hemocheck.imagen.componerFila
-import com.hemocheck.imagen.recortarZona
 import com.hemocheck.ui.comun.Aviso
 import com.hemocheck.ui.comun.Barra
 import com.hemocheck.ui.comun.EtiquetaEstado
@@ -105,20 +117,30 @@ fun PantallaCollage(
                 d.informe.estados.forEach { EtiquetaEstado(it) }
             }
 
-            FilaCollage(1, stringResource(R.string.tipo_convencional)) {
+            val alertaConv = d.registros.any { it.entrada.tipo == TipoRegistro.CONVENCIONAL && alertaDe(it) }
+            val alertaMol = d.registros.any { it.entrada.tipo == TipoRegistro.MOLECULAR && alertaDe(it) }
+            if (alertaConv || alertaMol) {
+                Aviso(stringResource(R.string.collage_alerta_texto), Gravedad.PELIGRO, titulo = stringResource(R.string.collage_alerta_titulo))
+            }
+
+            FilaCollage(1, stringResource(R.string.tipo_convencional), alertaConv) {
                 RegistrosDeTipo(d, TipoRegistro.CONVENCIONAL, imagenes, onAbrirEntrada)
             }
-            FilaCollage(2, stringResource(R.string.tipo_molecular)) {
+            FilaCollage(2, stringResource(R.string.tipo_molecular), alertaMol) {
                 RegistrosDeTipo(d, TipoRegistro.MOLECULAR, imagenes, onAbrirEntrada)
             }
-            FilaCollage(3, stringResource(R.string.comparacion_etiqueta)) {
+            FilaCollage(3, stringResource(R.string.comparacion_etiqueta), false) {
                 val pagina = d.paginaEtiqueta
                 val bmp = pagina?.let { imagenes[it.id] }
                 when {
                     pagina == null -> Aviso(stringResource(R.string.comparacion_sin_foto_etiqueta), Gravedad.ADVERTENCIA)
                     bmp == null -> CircularProgressIndicator()
                     else -> {
-                        val numero = remember(bmp) { recortarZona(bmp, d.verificacion.cajaIdEtiqueta, pagina.anchoProcesada, pagina.altoProcesada, 0.8f) }
+                        val numero = remember(bmp) {
+                            d.verificacion.cajaIdEtiqueta?.let { c ->
+                                recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(c), null, pagina.anchoProcesada, alerta = false)
+                            }
+                        }
                         numero?.let { ImagenAmpliable(it, stringResource(R.string.comparacion_recorte_numero_etiqueta), alturaMax = 140) }
                         ImagenAmpliable(bmp, stringResource(R.string.comparacion_foto_etiqueta), alturaMax = 520)
                     }
@@ -144,8 +166,12 @@ fun PantallaCollage(
 }
 
 @Composable
-private fun FilaCollage(numero: Int, titulo: String, contenido: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+private fun FilaCollage(numero: Int, titulo: String, alerta: Boolean, contenido: @Composable () -> Unit) {
+    val fondo = if (alerta) LocalColoresEstado.current.peligro else MaterialTheme.colorScheme.surfaceVariant
+    Card(
+        Modifier.fillMaxWidth().then(if (alerta) Modifier.border(3.dp, Color(0xFFD32F2F), RoundedCornerShape(12.dp)) else Modifier),
+        colors = CardDefaults.cardColors(containerColor = fondo),
+    ) {
         Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("$numero · $titulo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             contenido()
@@ -174,8 +200,33 @@ private fun RegistrosDeTipo(
             pagina == null -> Aviso(stringResource(R.string.comparacion_pagina_no_disponible), Gravedad.ADVERTENCIA)
             bmp == null -> CircularProgressIndicator()
             else -> {
+                val ocr = remember(pagina.id) { pagina.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() } }
+                val estado = remember(pagina.id, e.id) { estadoDe(r) }
+                val alerta = alertaDe(r)
+                val compacto = remember(bmp, e.id) {
+                    val c = e.cajaId
+                    if (c == null || ocr == null) null
+                    else recortarConMarca(bmp, FilaCompacta.zona(ocr, c, estado), FilaCompacta.marca(c, estado), pagina.anchoProcesada, alerta)
+                }
                 val fila = remember(bmp, e.id) { componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada) }
-                if (fila != null) {
+                var verCompleta by remember(e.id) { mutableStateOf(false) }
+                if (compacto != null) {
+                    ImagenAmpliable(compacto, stringResource(R.string.collage_recorte_compacto), alturaMax = 220)
+                    estado?.let {
+                        if (it.noApto) Etiqueta(stringResource(R.string.collage_planilla_dice, it.texto), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
+                        else Etiqueta(stringResource(R.string.collage_planilla_dice, it.texto), Icons.Filled.Info, Gravedad.INFO)
+                    }
+                    val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.map { it.nombre }.distinct()
+                    if (reactivos.isNotEmpty()) {
+                        Etiqueta(stringResource(R.string.collage_reactivo, reactivos.joinToString(", ")), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
+                    }
+                    if (fila != null) {
+                        TextButton(onClick = { verCompleta = !verCompleta }) {
+                            Text(stringResource(if (verCompleta) R.string.collage_ocultar_fila else R.string.collage_ver_fila))
+                        }
+                        if (verCompleta) ImagenAmpliable(fila, stringResource(R.string.recorte_fila), alturaMax = 260)
+                    }
+                } else if (fila != null) {
                     ImagenAmpliable(fila, stringResource(R.string.recorte_fila), alturaMax = 260)
                 } else {
                     // Sin ubicación precisa: la página completa, nunca un recorte inventado
@@ -192,3 +243,14 @@ private fun RegistrosDeTipo(
         TextButton(onClick = { onAbrirEntrada(e.id) }) { Text(stringResource(R.string.collage_ver_pagina)) }
     }
 }
+
+/** Estado «Apto / No Apto» que figura en la planilla para la fila del registro. */
+private fun estadoDe(r: RegistroEncontrado): EstadoPlanilla? {
+    val caja = r.entrada.cajaId ?: return null
+    val ocr = r.pagina?.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() } ?: return null
+    return FilaCompacta.estado(ocr, caja)
+}
+
+/** La planilla documenta un resultado reactivo o «No Apto» para esta fila. */
+private fun alertaDe(r: RegistroEncontrado): Boolean =
+    r.resultados.any { it.categoria == CategoriaResultado.REACTIVO } || estadoDe(r)?.noApto == true
