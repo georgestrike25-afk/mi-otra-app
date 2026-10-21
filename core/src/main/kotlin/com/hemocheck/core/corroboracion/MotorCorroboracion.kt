@@ -234,7 +234,8 @@ class MotorCorroboracion(
             secciones += SeccionInforme(tipo, confirmadas.map { it.entradaId }, pendientes.map { it.entradaId }, ordenar(estadosSeccion))
         }
 
-        val estados = ordenar(secciones.flatMap { it.estados } + avisos.map { it.estado })
+        // La corrección manual del número es solo informativa: no genera un estado de «pendiente»
+        val estados = ordenar(secciones.flatMap { it.estados } + avisos.filter { it.tipo != TipoAviso.ID_CORREGIDO }.map { it.estado })
         return InformeCorroboracion(id, estados, secciones, filas, avisos)
     }
 
