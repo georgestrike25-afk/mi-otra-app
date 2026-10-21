@@ -88,6 +88,11 @@ fun PantallaAjustes(contenedor: Contenedor, onAyuda: () -> Unit, onAtras: () -> 
                     }
                 }
                 Text(stringResource(R.string.ajustes_bloqueo_fondo), style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.ajustes_capturas), modifier = Modifier.weight(1f))
+                    Switch(checked = ajustes.permitirCapturas, onCheckedChange = { ajustes.permitirCapturas = it })
+                }
+                if (ajustes.permitirCapturas) Aviso(stringResource(R.string.ajustes_capturas_aviso), Gravedad.ADVERTENCIA)
                 OutlinedButton(onClick = { contenedor.sesion.bloquear() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bloquear_ahora)) }
             }
 

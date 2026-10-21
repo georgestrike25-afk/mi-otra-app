@@ -357,6 +357,8 @@
     <string name="ajustes_biometria">Desbloqueo con huella o rostro</string>
     <string name="ajustes_biometria_no_disponible">Este teléfono no tiene biometría segura configurada.</string>
     <string name="ajustes_bloqueo_inactividad">Bloqueo automático por inactividad</string>
+    <string name="ajustes_capturas">Permitir capturas de pantalla (modo pruebas)</string>
+    <string name="ajustes_capturas_aviso">Las capturas están permitidas. Pueden mostrar datos de donantes y quedar en la galería: usalas solo para pruebas, tapá los datos personales y volvé a desactivarlas.</string>
     <string name="ajustes_bloqueo_fondo">HemoCheck también se bloquea al salir de la app o apagar la pantalla.</string>
     <string name="ajustes_identificadores">Formatos de identificador</string>
     <string name="ajustes_identificadores_explicacion">Formatos que se buscan en las hojas y etiquetas. La búsqueda siempre es exacta.</string>

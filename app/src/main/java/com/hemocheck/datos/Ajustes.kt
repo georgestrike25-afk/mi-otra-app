@@ -21,6 +21,11 @@ class Ajustes(private val prefs: SharedPreferences) {
         get() = prefs.getInt("minutos_bloqueo", 3)
         set(v) = guardar { putInt("minutos_bloqueo", v) }
 
+    /** Modo pruebas: permite capturas de pantalla (por omisión, bloqueadas con FLAG_SECURE). */
+    var permitirCapturas: Boolean
+        get() = prefs.getBoolean("permitir_capturas", false)
+        set(v) = guardar { putBoolean("permitir_capturas", v) }
+
     var biometria: Boolean
         get() = prefs.getBoolean("biometria", false)
         set(v) = guardar { putBoolean("biometria", v) }

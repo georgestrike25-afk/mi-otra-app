@@ -183,7 +183,7 @@ fun VisorImagen(bitmap: Bitmap, descripcion: String, onCerrar: () -> Unit) {
     var desplazamiento by remember { mutableStateOf(Offset.Zero) }
     Dialog(
         onDismissRequest = onCerrar,
-        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn),
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.Inherit),
     ) {
         Surface(Modifier.fillMaxSize(), color = Color.Black) {
             Box(Modifier.fillMaxSize()) {

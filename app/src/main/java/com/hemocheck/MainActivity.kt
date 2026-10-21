@@ -39,7 +39,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Impide capturas de pantalla, grabaciones y la vista previa en «Recientes»
-        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        aplicarProteccionDePantalla()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(false)
         enableEdgeToEdge()
 
@@ -66,12 +66,26 @@ class MainActivity : FragmentActivity() {
         }
 
         // Revisión periódica del tiempo de inactividad
+        // Si se cambia el ajuste de capturas, se aplica en el momento
+        lifecycleScope.launch {
+            app.contenedor?.ajustes?.version?.collect { aplicarProteccionDePantalla() }
+        }
         lifecycleScope.launch {
             while (true) {
                 delay(10_000)
                 app.contenedor?.sesion?.revisarInactividad()
             }
         }
+    }
+
+    /**
+     * Por omisión impide capturas, grabaciones y la vista previa en «Recientes» (FLAG_SECURE).
+     * Solo el modo pruebas de Configuración permite capturas; «Recientes» sigue oculto.
+     */
+    private fun aplicarProteccionDePantalla() {
+        val permitir = (application as HemoCheckApp).contenedor?.ajustes?.permitirCapturas == true
+        if (permitir) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        else window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     override fun onUserInteraction() {
