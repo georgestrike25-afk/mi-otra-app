@@ -18,7 +18,8 @@ object ClasificadorResultado {
     // Sobre texto en minúsculas y sin tildes. Las negaciones van antes que las afirmaciones
     // para que «no reactivo» no se lea como «reactivo».
     private val noReactivo = listOf(
-        "no\\s*-?\\s*reactiv[oa]s?", "n\\s*/\\s*r", "n\\.\\s*r\\.?", "nr",
+        // «N0» con cero: confusión habitual del OCR
+        "n[o0]\\s*-?\\s*reactiv[oa]s?", "n\\s*/\\s*r", "n\\.\\s*r\\.?", "nr",
         "no\\s+detectad[oa]s?", "no\\s+detectable", "no\\s+se\\s+detecta", "no\\s+detectado",
         "negativ[oa]s?", "neg\\.?", "\\(\\s*-\\s*\\)",
     )

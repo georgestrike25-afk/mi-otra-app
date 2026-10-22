@@ -1,31 +1,25 @@
 package com.hemocheck.ui.comparacion
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.ui.graphics.Color
-import com.hemocheck.core.analisis.EstadoPlanilla
-import com.hemocheck.core.analisis.FilaCompacta
-import com.hemocheck.core.ocr.PaginaOcr
-import com.hemocheck.core.resultado.CategoriaResultado
-import com.hemocheck.imagen.recortarConMarca
-import com.hemocheck.ui.comun.Etiqueta
-import com.hemocheck.ui.tema.LocalColoresEstado
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -40,36 +34,43 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.core.analisis.EstadoPlanilla
+import com.hemocheck.core.analisis.FilaCompacta
+import com.hemocheck.core.ocr.PaginaOcr
+import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.datos.DatosComparacion
 import com.hemocheck.datos.RegistroEncontrado
 import com.hemocheck.imagen.componerFila
+import com.hemocheck.imagen.recortarConMarca
 import com.hemocheck.ui.comun.Aviso
 import com.hemocheck.ui.comun.Barra
-import com.hemocheck.ui.comun.EtiquetaEstado
+import com.hemocheck.ui.comun.Etiqueta
 import com.hemocheck.ui.comun.Gravedad
 import com.hemocheck.ui.comun.ImagenAmpliable
 import com.hemocheck.ui.comun.TextoId
+import com.hemocheck.ui.comun.VisorImagen
 import com.hemocheck.ui.comun.formatearFecha
 import com.hemocheck.ui.comun.formatearId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Collage de corroboración: tres filas con las imágenes ampliadas para que el usuario mire por
- * sí mismo el número y los resultados:
- * 1) la fila de la planilla de serología convencional (con su encabezado),
- * 2) la fila de la planilla de serología molecular,
- * 3) la etiqueta de la unidad.
+ * Collage de corroboración: tres imágenes grandes, a todo el ancho y una debajo de la otra
+ * (planilla convencional, planilla molecular y etiqueta), para mirar el número y el estado
+ * con los propios ojos. Los detalles van debajo.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PantallaCollage(
     contenedor: Contenedor,
@@ -101,150 +102,194 @@ fun PantallaCollage(
     Scaffold(topBar = { Barra(stringResource(R.string.collage_titulo), onAtras = onAtras) }) { relleno ->
         val d = datos
         Column(
-            Modifier.fillMaxSize().padding(relleno).verticalScroll(rememberScrollState()).padding(horizontal = 10.dp)
-                .testTag("pantalla_collage"),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxSize().padding(relleno).verticalScroll(rememberScrollState()).testTag("pantalla_collage"),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (d == null) {
-                if (!cargado) CircularProgressIndicator() else Aviso(stringResource(R.string.comparacion_no_disponible), Gravedad.ADVERTENCIA)
+                Box(Modifier.padding(16.dp)) {
+                    if (!cargado) CircularProgressIndicator() else Aviso(stringResource(R.string.comparacion_no_disponible), Gravedad.ADVERTENCIA)
+                }
                 return@Column
             }
-            Text(stringResource(R.string.comparacion_id_etiqueta), style = MaterialTheme.typography.labelLarge)
-            TextoId(d.informe.idEtiqueta, grande = true)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                d.informe.estados.forEach { EtiquetaEstado(it) }
+            val lecturas = remember(d) { d.registros.associate { it.entrada.id to leer(it) } }
+            val conv = d.registros.filter { it.entrada.tipo == TipoRegistro.CONVENCIONAL }
+            val mol = d.registros.filter { it.entrada.tipo == TipoRegistro.MOLECULAR }
+
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                Text(stringResource(R.string.comparacion_id_etiqueta), style = MaterialTheme.typography.labelLarge)
+                TextoId(d.informe.idEtiqueta, grande = true)
+            }
+            if (d.registros.any { lecturas[it.entrada.id]?.alerta == true }) {
+                Aviso(
+                    stringResource(R.string.collage_alerta_texto), Gravedad.PELIGRO,
+                    modifier = Modifier.padding(horizontal = 12.dp), titulo = stringResource(R.string.collage_alerta_titulo),
+                )
             }
 
-            val alertaConv = d.registros.any { it.entrada.tipo == TipoRegistro.CONVENCIONAL && alertaDe(it) }
-            val alertaMol = d.registros.any { it.entrada.tipo == TipoRegistro.MOLECULAR && alertaDe(it) }
-            if (alertaConv || alertaMol) {
-                Aviso(stringResource(R.string.collage_alerta_texto), Gravedad.PELIGRO, titulo = stringResource(R.string.collage_alerta_titulo))
+            // Las tres imágenes, grandes y pegadas
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.background(Color.Black)) {
+                ImagenesDeTipo(conv, stringResource(R.string.tipo_convencional), d, imagenes, lecturas)
+                ImagenesDeTipo(mol, stringResource(R.string.tipo_molecular), d, imagenes, lecturas)
+                ImagenEtiqueta(d, imagenes)
             }
 
-            FilaCollage(1, stringResource(R.string.tipo_convencional), alertaConv) {
-                RegistrosDeTipo(d, TipoRegistro.CONVENCIONAL, imagenes, onAbrirEntrada)
-            }
-            FilaCollage(2, stringResource(R.string.tipo_molecular), alertaMol) {
-                RegistrosDeTipo(d, TipoRegistro.MOLECULAR, imagenes, onAbrirEntrada)
-            }
-            FilaCollage(3, stringResource(R.string.comparacion_etiqueta), false) {
-                val pagina = d.paginaEtiqueta
-                val bmp = pagina?.let { imagenes[it.id] }
-                when {
-                    pagina == null -> Aviso(stringResource(R.string.comparacion_sin_foto_etiqueta), Gravedad.ADVERTENCIA)
-                    bmp == null -> CircularProgressIndicator()
-                    else -> {
-                        val numero = remember(bmp) {
-                            d.verificacion.cajaIdEtiqueta?.let { c ->
-                                recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(c), null, pagina.anchoProcesada, alerta = false)
-                            }
+            // Detalles debajo
+            Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DetalleTipo(stringResource(R.string.tipo_convencional), conv, d, imagenes, lecturas, onAbrirEntrada)
+                DetalleTipo(stringResource(R.string.tipo_molecular), mol, d, imagenes, lecturas, onAbrirEntrada)
+                Aviso(stringResource(R.string.collage_ayuda), Gravedad.INFO)
+                if (revisada == null) {
+                    Button(onClick = {
+                        alcance.launch(Dispatchers.Main) {
+                            contenedor.repositorio.marcarRevisada(verificacionId)
+                            revisada = contenedor.repositorio.ahora()
                         }
-                        numero?.let { ImagenAmpliable(it, stringResource(R.string.comparacion_recorte_numero_etiqueta), alturaMax = 140) }
-                        ImagenAmpliable(bmp, stringResource(R.string.comparacion_foto_etiqueta), alturaMax = 520)
-                    }
+                    }, modifier = Modifier.fillMaxWidth().testTag("boton_marcar_revisada")) { Text(stringResource(R.string.comparacion_marcar_revisada)) }
+                } else {
+                    Aviso(stringResource(R.string.comparacion_revisada_el, formatearFecha(revisada!!)), Gravedad.CORRECTO)
                 }
+                OutlinedButton(onClick = onDetalle, modifier = Modifier.fillMaxWidth().testTag("boton_detalle")) { Text(stringResource(R.string.collage_ver_detalle)) }
+                OutlinedButton(onClick = onNuevaVerificacion, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.comparacion_nueva)) }
+                Aviso(stringResource(R.string.limite_clinico_pie), Gravedad.INFO)
+                Spacer(Modifier.height(12.dp))
             }
-
-            Aviso(stringResource(R.string.collage_ayuda), Gravedad.INFO)
-            if (revisada == null) {
-                Button(onClick = {
-                    alcance.launch(Dispatchers.Main) {
-                        contenedor.repositorio.marcarRevisada(verificacionId)
-                        revisada = contenedor.repositorio.ahora()
-                    }
-                }, modifier = Modifier.fillMaxWidth().testTag("boton_marcar_revisada")) { Text(stringResource(R.string.comparacion_marcar_revisada)) }
-            } else {
-                Aviso(stringResource(R.string.comparacion_revisada_el, formatearFecha(revisada!!)), Gravedad.CORRECTO)
-            }
-            OutlinedButton(onClick = onDetalle, modifier = Modifier.fillMaxWidth().testTag("boton_detalle")) { Text(stringResource(R.string.collage_ver_detalle)) }
-            OutlinedButton(onClick = onNuevaVerificacion, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.comparacion_nueva)) }
-            Aviso(stringResource(R.string.limite_clinico_pie), Gravedad.INFO)
         }
     }
 }
 
+/** Lo que se lee de la planilla para una fila: su estado y los reactivos leídos por OCR. */
+private class Lectura(val estado: EstadoPlanilla?, val ocr: PaginaOcr?, val reactivos: List<String>) {
+    /**
+     * La alerta roja la da el estado escrito en la planilla («No Apto»). Si no se encontró la
+     * columna de estado, se usan los resultados leídos («REACTIVO»).
+     */
+    val alerta: Boolean get() = estado?.noApto ?: reactivos.isNotEmpty()
+
+    /** Se leyó «REACTIVO» pero la planilla dice «Apto»: probable error de lectura, a verificar. */
+    val discrepancia: Boolean get() = estado != null && !estado.noApto && reactivos.isNotEmpty()
+}
+
+private fun leer(r: RegistroEncontrado): Lectura {
+    val ocr = r.pagina?.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() }
+    val estado = r.entrada.cajaId?.let { c -> ocr?.let { FilaCompacta.estado(it, c) } }
+    val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.map { it.nombre }.distinct()
+    return Lectura(estado, ocr, reactivos)
+}
+
+/** Imagen a todo el ancho, respetando su proporción; al tocarla se abre ampliable. */
 @Composable
-private fun FilaCollage(numero: Int, titulo: String, alerta: Boolean, contenido: @Composable () -> Unit) {
-    val fondo = if (alerta) LocalColoresEstado.current.peligro else MaterialTheme.colorScheme.surfaceVariant
-    Card(
-        Modifier.fillMaxWidth().then(if (alerta) Modifier.border(3.dp, Color(0xFFD32F2F), RoundedCornerShape(12.dp)) else Modifier),
-        colors = CardDefaults.cardColors(containerColor = fondo),
-    ) {
-        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("$numero · $titulo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            contenido()
-        }
+private fun ImagenAncha(bmp: Bitmap, descripcion: String) {
+    var abierta by remember { mutableStateOf(false) }
+    val imagen = remember(bmp) { bmp.asImageBitmap() }
+    Image(
+        imagen, contentDescription = descripcion, contentScale = ContentScale.FillWidth,
+        modifier = Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height.coerceAtLeast(1)).clickable { abierta = true },
+    )
+    if (abierta) VisorImagen(bmp, descripcion) { abierta = false }
+}
+
+@Composable
+private fun Faltante(texto: String) {
+    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).padding(16.dp), contentAlignment = Alignment.Center) {
+        Text(texto, color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-private fun RegistrosDeTipo(
+private fun ImagenesDeTipo(
+    registros: List<RegistroEncontrado>,
+    tipo: String,
     d: DatosComparacion,
-    tipo: TipoRegistro,
     imagenes: Map<Long, Bitmap>,
-    onAbrirEntrada: (Long) -> Unit,
+    lecturas: Map<Long, Lectura>,
 ) {
-    val registros: List<RegistroEncontrado> = d.registros.filter { it.entrada.tipo == tipo }
     if (registros.isEmpty()) {
-        Aviso(stringResource(R.string.collage_no_encontrado, formatearId(d.informe.idEtiqueta ?: "")), Gravedad.PELIGRO)
+        Faltante(stringResource(R.string.collage_falta_tipo, tipo, formatearId(d.informe.idEtiqueta ?: "")))
         return
     }
-    if (registros.size > 1) Aviso(stringResource(R.string.collage_varios, registros.size), Gravedad.PELIGRO)
     registros.forEach { r ->
-        val e = r.entrada
         val pagina = r.pagina
         val bmp = pagina?.let { imagenes[it.id] }
+        val lectura = lecturas[r.entrada.id]
+        val e = r.entrada
         when {
-            pagina == null -> Aviso(stringResource(R.string.comparacion_pagina_no_disponible), Gravedad.ADVERTENCIA)
-            bmp == null -> CircularProgressIndicator()
+            pagina == null -> Faltante(stringResource(R.string.comparacion_pagina_no_disponible))
+            bmp == null -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             else -> {
-                val ocr = remember(pagina.id) { pagina.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() } }
-                val estado = remember(pagina.id, e.id) { estadoDe(r) }
-                val alerta = alertaDe(r)
-                val compacto = remember(bmp, e.id) {
+                val recorte = remember(bmp, e.id) {
                     val c = e.cajaId
-                    if (c == null || ocr == null) null
-                    else recortarConMarca(bmp, FilaCompacta.zona(ocr, c, estado), FilaCompacta.marca(c, estado), pagina.anchoProcesada, alerta)
+                    val ocr = lectura?.ocr
+                    when {
+                        c != null && ocr != null -> recortarConMarca(
+                            bmp, FilaCompacta.zona(ocr, c, lectura.estado), FilaCompacta.marca(c, lectura.estado),
+                            pagina.anchoProcesada, lectura.alerta,
+                        )
+                        else -> componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada)
+                    }
                 }
-                val fila = remember(bmp, e.id) { componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada) }
-                var verCompleta by remember(e.id) { mutableStateOf(false) }
-                if (compacto != null) {
-                    ImagenAmpliable(compacto, stringResource(R.string.collage_recorte_compacto), alturaMax = 220)
-                    estado?.let {
-                        if (it.noApto) Etiqueta(stringResource(R.string.collage_planilla_dice, it.texto), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
-                        else Etiqueta(stringResource(R.string.collage_planilla_dice, it.texto), Icons.Filled.Info, Gravedad.INFO)
-                    }
-                    val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.map { it.nombre }.distinct()
-                    if (reactivos.isNotEmpty()) {
-                        Etiqueta(stringResource(R.string.collage_reactivo, reactivos.joinToString(", ")), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
-                    }
-                    if (fila != null) {
-                        TextButton(onClick = { verCompleta = !verCompleta }) {
-                            Text(stringResource(if (verCompleta) R.string.collage_ocultar_fila else R.string.collage_ver_fila))
-                        }
-                        if (verCompleta) ImagenAmpliable(fila, stringResource(R.string.recorte_fila), alturaMax = 260)
-                    }
-                } else if (fila != null) {
-                    ImagenAmpliable(fila, stringResource(R.string.recorte_fila), alturaMax = 260)
-                } else {
-                    // Sin ubicación precisa: la página completa, nunca un recorte inventado
-                    Aviso(stringResource(R.string.comparacion_sin_recorte_registro), Gravedad.ADVERTENCIA)
-                    ImagenAmpliable(bmp, stringResource(R.string.comparacion_pagina_completa), alturaMax = 420)
-                }
+                ImagenAncha(recorte ?: bmp, stringResource(R.string.collage_recorte_compacto))
             }
         }
-        Text(stringResource(R.string.collage_pie_registro, formatearId(e.idNormalizado)), style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { onAbrirEntrada(e.id) }) { Text(stringResource(R.string.collage_ver_pagina)) }
     }
 }
 
-/** Estado «Apto / No Apto» que figura en la planilla para la fila del registro. */
-private fun estadoDe(r: RegistroEncontrado): EstadoPlanilla? {
-    val caja = r.entrada.cajaId ?: return null
-    val ocr = r.pagina?.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() } ?: return null
-    return FilaCompacta.estado(ocr, caja)
+@Composable
+private fun ImagenEtiqueta(d: DatosComparacion, imagenes: Map<Long, Bitmap>) {
+    val pagina = d.paginaEtiqueta
+    val bmp = pagina?.let { imagenes[it.id] }
+    when {
+        pagina == null -> Faltante(stringResource(R.string.comparacion_sin_foto_etiqueta))
+        bmp == null -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        else -> {
+            val recorte = remember(bmp) {
+                d.verificacion.cajaIdEtiqueta?.let { c -> recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(c), null, pagina.anchoProcesada, alerta = false) }
+            }
+            ImagenAncha(recorte ?: bmp, stringResource(R.string.comparacion_foto_etiqueta))
+        }
+    }
 }
 
-/** La planilla documenta un resultado reactivo o «No Apto» para esta fila. */
-private fun alertaDe(r: RegistroEncontrado): Boolean =
-    r.resultados.any { it.categoria == CategoriaResultado.REACTIVO } || estadoDe(r)?.noApto == true
+/** Detalle textual de un tipo de planilla, debajo de las imágenes. */
+@Composable
+private fun DetalleTipo(
+    tipo: String,
+    registros: List<RegistroEncontrado>,
+    d: DatosComparacion,
+    imagenes: Map<Long, Bitmap>,
+    lecturas: Map<Long, Lectura>,
+    onAbrirEntrada: (Long) -> Unit,
+) {
+    if (registros.isEmpty()) return
+    Text(tipo, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    if (registros.size > 1) Aviso(stringResource(R.string.collage_varios, registros.size), Gravedad.PELIGRO)
+    registros.forEach { r ->
+        val l = lecturas[r.entrada.id]
+        val estado = l?.estado
+        when {
+            estado != null && estado.noApto ->
+                Etiqueta(stringResource(R.string.collage_planilla_dice, estado.texto), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
+            estado != null -> Etiqueta(stringResource(R.string.collage_planilla_dice, estado.texto), Icons.Filled.Info, Gravedad.INFO)
+            l != null && l.reactivos.isNotEmpty() ->
+                Etiqueta(stringResource(R.string.collage_reactivo, l.reactivos.joinToString(", ")), Icons.Filled.ErrorOutline, Gravedad.PELIGRO)
+            else -> Text(stringResource(R.string.collage_sin_estado), style = MaterialTheme.typography.bodySmall)
+        }
+        if (l?.discrepancia == true) {
+            Etiqueta(stringResource(R.string.collage_discrepancia, l.reactivos.joinToString(", ")), Icons.Filled.WarningAmber, Gravedad.ADVERTENCIA)
+        }
+        var verFila by remember(r.entrada.id) { mutableStateOf(false) }
+        val pagina = r.pagina
+        val bmp = pagina?.let { imagenes[it.id] }
+        if (bmp != null && pagina != null) {
+            TextButton(onClick = { verFila = !verFila }) {
+                Text(stringResource(if (verFila) R.string.collage_ocultar_fila else R.string.collage_ver_fila))
+            }
+            if (verFila) {
+                val fila = remember(bmp, r.entrada.id) {
+                    componerFila(bmp, r.entrada.cajaEncabezados, r.entrada.cajaFila ?: r.entrada.cajaId, pagina.anchoProcesada, pagina.altoProcesada)
+                }
+                ImagenAmpliable(fila ?: bmp, stringResource(R.string.recorte_fila), alturaMax = 300)
+            }
+        }
+        TextButton(onClick = { onAbrirEntrada(r.entrada.id) }) { Text(stringResource(R.string.collage_ver_pagina)) }
+    }
+}

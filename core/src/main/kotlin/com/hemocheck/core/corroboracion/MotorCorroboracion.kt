@@ -167,8 +167,10 @@ class MotorCorroboracion(
         val filas = mutableListOf<FilaDeterminacion>()
         for (tipo in TipoRegistro.entries) {
             val delTipo = coincidentes.filter { it.tipo == tipo }
-            val confirmadas = delTipo.filter { it.estado == EstadoEntrada.CONFIRMADA || it.estado == EstadoEntrada.AUTOMATICA }
-            val pendientes = delTipo.filter { it.estado == EstadoEntrada.PENDIENTE_REVISION }
+            // Todas las filas con el número exacto cuentan: la verificación final es visual (collage).
+            // Así también las guardadas por versiones anteriores como «pendientes».
+            val confirmadas = delTipo
+            val pendientes = emptyList<RegistroAlmacenado>()
             val estadosSeccion = mutableListOf<EstadoCorroboracion>()
             fun aviso(e: EstadoCorroboracion, t: TipoAviso, detalle: String? = null) {
                 avisos += AvisoCorroboracion(e, t, tipo, detalle)

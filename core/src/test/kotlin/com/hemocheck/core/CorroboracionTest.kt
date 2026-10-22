@@ -111,12 +111,12 @@ class CorroboracionTest {
     }
 
     @Test
-    fun `solo pendiente de revision no cuenta como coincidencia`() {
+    fun `fila guardada como pendiente igual cuenta y se verifica en el collage`() {
         val inf = corroborar(reg(1, TipoRegistro.CONVENCIONAL, todasNr, estado = EstadoEntrada.PENDIENTE_REVISION))
         val conv = inf.secciones.single { it.tipo == TipoRegistro.CONVENCIONAL }
-        assertTrue(E.PENDIENTE_REVISION in conv.estados)
-        assertTrue(E.REGISTRO_NO_ENCONTRADO in conv.estados)
-        assertFalse(E.COINCIDENCIA_EXACTA in conv.estados)
+        assertTrue(E.COINCIDENCIA_EXACTA in conv.estados)
+        assertFalse(E.PENDIENTE_REVISION in inf.estados)
+        assertFalse(E.REGISTRO_NO_ENCONTRADO in conv.estados)
     }
 
     @Test

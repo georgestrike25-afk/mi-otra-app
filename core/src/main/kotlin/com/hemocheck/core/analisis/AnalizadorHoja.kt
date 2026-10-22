@@ -120,6 +120,7 @@ class AnalizadorHoja(
                 }
                 .map { Res(it.categoria, it.fragmento) }
         }
+        unirNegacionesSeparadas(frases, lineas)
         val fechaPagina = fechas.firstOrNull { (_, f) -> "fecha" in lineas[f.indiceLinea].textoNormalizado }?.first
             ?: fechas.firstOrNull()?.first
         val validacionPagina = lineas.filter { REGEX_VALIDACION.containsMatchIn(it.textoNormalizado) }
@@ -175,6 +176,31 @@ class AnalizadorHoja(
             else -> Disposicion.DESCONOCIDA
         }
         return HojaAnalizada(tipo, disposicion, entradasFinales, avisos, fechaPagina, validacionPagina, sueltos)
+    }
+
+    /**
+     * El OCR a veces separa «NO» de «REACTIVO» (dos palabras o dos líneas distintas) y quedaría
+     * un falso «REACTIVO». Si inmediatamente a la izquierda, en la misma fila, hay un «NO» (o
+     * «N0»), se unen y se lee «NO REACTIVO».
+     */
+    private fun unirNegacionesSeparadas(frases: MutableList<Res>, lineas: List<TextoLinea>) {
+        val negaciones = lineas.flatMap { it.palabrasFuera(emptyList()) }
+            .filter { it.caja != null && TextoLinea.normalizarConservandoLongitud(it.texto).trim().trimEnd('.') in setOf("no", "n0") }
+        if (negaciones.isEmpty()) return
+        for (i in frases.indices) {
+            val r = frases[i]
+            val c = r.f.caja ?: continue
+            if (r.categoria != CategoriaResultado.REACTIVO) continue
+            val neg = negaciones.firstOrNull { n ->
+                val nc = n.caja!!
+                abs(nc.centroY - c.centroY) <= 0.6f * max(nc.alto, c.alto) &&
+                    nc.der <= c.izq + c.alto / 2 && c.izq - nc.der <= c.alto * 2.5f
+            } ?: continue
+            frases[i] = Res(
+                CategoriaResultado.NO_REACTIVO,
+                r.f.copy(texto = neg.texto + " " + r.f.texto, caja = neg.caja!!.union(c)),
+            )
+        }
     }
 
     /**

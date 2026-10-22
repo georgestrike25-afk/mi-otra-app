@@ -81,4 +81,21 @@ class PlanillaHospitalTest {
             assertTrue(e.resultados.all { it.categoria == CategoriaResultado.NO_REACTIVO })
         }
     }
+
+    @Test
+    fun `NO separado de REACTIVO por el OCR se lee como NO REACTIVO`() {
+        val p = pagina(2000, 1000) {
+            linea("Referencia", 60, 200); linea("HIV Ag/Ac", 560, 200); linea("AgHBs", 830, 200)
+            linea("900148", 60, 300)
+            linea("NO", 560, 300); linea("REACTIVO", 560 + 3 * 18, 300) // dos líneas distintas
+            linea("N0 REACTIVO", 830, 300) // cero en lugar de O
+            linea("900149", 60, 360)
+            linea("NO REACTIVO", 560, 360); linea("REACTIVO", 830, 360) // reactivo real
+        }
+        val hoja = analizador.analizar(p, TipoRegistro.CONVENCIONAL)
+        val a = hoja.entradas.single { it.ocurrencia.normalizado == "900148" }
+        assertTrue(a.resultados.toString(), a.resultados.all { it.categoria == CategoriaResultado.NO_REACTIVO })
+        val b = hoja.entradas.single { it.ocurrencia.normalizado == "900149" }
+        assertEquals(CategoriaResultado.REACTIVO, b.resultados.single { it.clave == "HBSAG" }.categoria)
+    }
 }
