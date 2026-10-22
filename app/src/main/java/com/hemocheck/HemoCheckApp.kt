@@ -30,12 +30,14 @@ class HemoCheckApp : Application() {
         iniciar()
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             // Al pasar a segundo plano (otra app, pantalla apagada) se bloquea
+            // (salvo una salida breve al selector de archivos para elegir un PDF)
             override fun onStop(owner: LifecycleOwner) {
-                contenedor?.sesion?.bloquear()
+                contenedor?.sesion?.alSalir()
             }
 
             // Al volver, se vuelve a comprobar el vencimiento y se limpia lo vencido
             override fun onStart(owner: LifecycleOwner) {
+                contenedor?.sesion?.alVolver()
                 limpiarEnSegundoPlano()
             }
         })

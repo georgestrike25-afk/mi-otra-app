@@ -17,6 +17,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import com.hemocheck.captura.ModoCaptura
+import com.hemocheck.core.analisis.AnalizadorHoja
+import com.hemocheck.imagen.LectorPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,6 +77,52 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
     var guardando by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
     val alcance = rememberCoroutineScope()
+    val context = LocalContext.current
+    var progresoPdf by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var avisoPdf by remember { mutableStateOf<String?>(null) }
+
+    // Cada página del PDF sigue el mismo camino que una foto, sin enderezar (ya es plana)
+    fun importarPdf(uri: Uri) {
+        error = null
+        avisoPdf = null
+        progresoPdf = 0 to 0
+        alcance.launch(Dispatchers.Main) {
+            try {
+                val total = LectorPdf.contarPaginas(context, uri)
+                if (total == 0) {
+                    error = R.string.pdf_error_leer
+                    return@launch
+                }
+                val n = minOf(total, LectorPdf.PAGINAS_MAX)
+                if (total > n) avisoPdf = context.getString(R.string.pdf_demasiadas_paginas, n, total)
+                val formatos = contenedor.ajustes.identificadores.formatos()
+                for (i in 0 until n) {
+                    if (contenedor.archivos.espacioLibre() < ArchivosCifrados.ESPACIO_RESERVADO * 2) {
+                        error = R.string.error_sin_espacio
+                        break
+                    }
+                    progresoPdf = (i + 1) to n
+                    val jpeg = LectorPdf.renderizar(context, uri, i)
+                    val p = contenedor.procesador.procesar(jpeg, 0, ModoCaptura.HOJA, corregirBordes = false)
+                    val tipo = contenedor.borradores.serologia.value.tipo
+                    withContext(Dispatchers.Default) {
+                        contenedor.borradores.agregarPagina(p, p.ocr?.let { AnalizadorHoja(formatos).analizar(it, tipo) })
+                    }
+                }
+            } catch (e: LectorPdf.PdfProtegidoException) {
+                error = R.string.pdf_error_protegido
+            } catch (e: OutOfMemoryError) {
+                error = R.string.pdf_error_leer
+            } catch (e: Exception) {
+                error = R.string.pdf_error_leer
+            } finally {
+                progresoPdf = null
+            }
+        }
+    }
+    val elegirPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importarPdf(uri)
+    }
 
     // Guarda las hojas sin revisión fila por fila: se verifican después, en el collage
     fun guardar() {
@@ -150,10 +204,30 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(if (b.paginas.isEmpty()) R.string.registro_fotografiar_primera else R.string.registro_fotografiar_otra))
             }
+            OutlinedButton(
+                onClick = {
+                    contenedor.sesion.permitirSalidaBreve()
+                    elegirPdf.launch(arrayOf("application/pdf"))
+                },
+                enabled = progresoPdf == null && !guardando,
+                modifier = Modifier.fillMaxWidth().testTag("boton_subir_pdf"),
+            ) {
+                Icon(Icons.Filled.PictureAsPdf, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.registro_subir_pdf))
+            }
+            progresoPdf?.let { (i, n) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (n == 0) stringResource(R.string.pdf_abriendo) else stringResource(R.string.pdf_leyendo, i, n))
+                }
+            }
+            avisoPdf?.let { Aviso(it, Gravedad.ADVERTENCIA) }
             error?.let { Aviso(stringResource(it), Gravedad.PELIGRO) }
             Button(
                 onClick = { guardar() },
-                enabled = b.paginas.isNotEmpty() && !guardando,
+                enabled = b.paginas.isNotEmpty() && !guardando && progresoPdf == null,
                 modifier = Modifier.fillMaxWidth().testTag("boton_guardar_hojas"),
             ) {
                 if (guardando) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)

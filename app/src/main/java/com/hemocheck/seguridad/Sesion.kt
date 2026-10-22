@@ -31,6 +31,31 @@ class Sesion(minutosBloqueo: () -> Int) {
         alBloquear.forEach { runCatching { it() } }
     }
 
+    private var salidaPermitidaHasta = 0L
+    private var fueraDesde: Long? = null
+
+    /**
+     * Permite salir un momento al selector de archivos del sistema (para elegir un PDF) sin
+     * bloquear ni perder las hojas en memoria. Si la ausencia dura más de [SALIDA_BREVE_MS],
+     * se bloquea al volver.
+     */
+    fun permitirSalidaBreve() {
+        if (_desbloqueada.value) salidaPermitidaHasta = SystemClock.elapsedRealtime() + SALIDA_BREVE_MS
+    }
+
+    /** La app pasó a segundo plano. */
+    fun alSalir() {
+        val ahora = SystemClock.elapsedRealtime()
+        if (ahora < salidaPermitidaHasta) fueraDesde = ahora else bloquear()
+    }
+
+    /** La app volvió al primer plano. */
+    fun alVolver() {
+        if (fueraDesde != null && SystemClock.elapsedRealtime() > salidaPermitidaHasta) bloquear()
+        fueraDesde = null
+        salidaPermitidaHasta = 0L
+    }
+
     fun registrarActividad() {
         if (_desbloqueada.value) temporizador.registrarActividad(SystemClock.elapsedRealtime())
     }
@@ -38,5 +63,9 @@ class Sesion(minutosBloqueo: () -> Int) {
     /** Bloquea si se superó el tiempo de inactividad configurado. */
     fun revisarInactividad() {
         if (_desbloqueada.value && temporizador.vencido(SystemClock.elapsedRealtime())) bloquear()
+    }
+
+    companion object {
+        const val SALIDA_BREVE_MS = 3 * 60_000L
     }
 }

@@ -14,6 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSystemClock
+import java.time.Duration
 
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class, sdk = [34])
@@ -60,5 +62,32 @@ class SeguridadAppTest {
         sesion.bloquear()
         assertFalse(sesion.desbloqueada.value)
         assertTrue(borradores.serologia.value.paginas.isEmpty())
+    }
+
+    @Test
+    fun `salir a segundo plano bloquea salvo una salida breve para elegir un PDF`() {
+        val sesion = Sesion { 3 }
+        sesion.desbloquear()
+        sesion.alSalir()
+        assertFalse(sesion.desbloqueada.value)
+
+        sesion.desbloquear()
+        sesion.permitirSalidaBreve()
+        sesion.alSalir()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(30))
+        sesion.alVolver()
+        assertTrue(sesion.desbloqueada.value)
+
+        // El permiso es de una sola vez
+        sesion.alSalir()
+        assertFalse(sesion.desbloqueada.value)
+
+        // Si la ausencia es larga, se bloquea al volver
+        sesion.desbloquear()
+        sesion.permitirSalidaBreve()
+        sesion.alSalir()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(Sesion.SALIDA_BREVE_MS + 1_000))
+        sesion.alVolver()
+        assertFalse(sesion.desbloqueada.value)
     }
 }
