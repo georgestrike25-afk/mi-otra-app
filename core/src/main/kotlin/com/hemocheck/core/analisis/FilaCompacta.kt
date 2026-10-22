@@ -54,10 +54,49 @@ object FilaCompacta {
         return Caja.unionDe(listOf(cajaId, estado?.caja))!!.expandir(pad, pad)
     }
 
-    /** Zona del número de la etiqueta con su código de barras debajo. */
+    /** Zona mínima del número de la etiqueta con su código de barras debajo. */
     fun zonaEtiqueta(cajaId: Caja): Caja =
         Caja(
             cajaId.izq - cajaId.ancho / 2, cajaId.arriba - cajaId.alto * 2,
             cajaId.der + cajaId.ancho / 4, cajaId.abajo + cajaId.alto * 3,
         )
+
+    /**
+     * Zona de la etiqueta pegada en la bolsa: el texto agrupado alrededor del número (líneas
+     * cercanas entre sí), sin alejarse más que el tamaño típico de una etiqueta. Así se ve la
+     * etiqueta completa pero no toda la bolsa.
+     */
+    fun zonaEtiqueta(pagina: PaginaOcr?, cajaId: Caja): Caja {
+        val minima = zonaEtiqueta(cajaId)
+        if (pagina == null) return minima
+        val h = cajaId.alto.coerceAtLeast(1)
+        val limite = Caja(
+            cajaId.izq - cajaId.ancho * 2, cajaId.arriba - h * 10,
+            cajaId.der + cajaId.ancho * 2, cajaId.abajo + h * 12,
+        )
+        val dentro = pagina.lineas.mapNotNull { it.caja }.filter { it.esValida && contiene(limite, it) }
+        var grupo = minima
+        var pendientes = dentro
+        val salto = h * 2
+        while (true) {
+            val cercanas = pendientes.filter { distancia(grupo, it) <= salto }
+            if (cercanas.isEmpty()) break
+            grupo = Caja.unionDe(cercanas + grupo)!!
+            pendientes = pendientes - cercanas.toSet()
+        }
+        return grupo.expandir(h / 2, h / 2)
+    }
+
+    /** Ubica el número en el OCR de la etiqueta si no se guardó su posición (p. ej. lectura por código de barras). */
+    fun buscarEnEtiqueta(pagina: PaginaOcr, id: String): Caja? =
+        pagina.lineas.filter { l -> l.caja != null && l.texto.filter { it.isLetterOrDigit() }.uppercase().contains(id.uppercase()) }
+            .maxByOrNull { it.caja!!.alto }?.caja
+
+    private fun contiene(a: Caja, b: Caja) = b.izq >= a.izq && b.der <= a.der && b.arriba >= a.arriba && b.abajo <= a.abajo
+
+    private fun distancia(a: Caja, b: Caja): Int {
+        val dx = max(0, max(a.izq - b.der, b.izq - a.der))
+        val dy = max(0, max(a.arriba - b.abajo, b.arriba - a.abajo))
+        return max(dx, dy)
+    }
 }

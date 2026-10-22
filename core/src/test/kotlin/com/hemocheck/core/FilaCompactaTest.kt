@@ -41,4 +41,25 @@ class FilaCompactaTest {
         val q = pagina { linea("900200", 60, 400) }
         assertNull(FilaCompacta.estado(q, q.lineas[0].caja!!))
     }
+
+    @Test
+    fun `zona de la etiqueta toma la etiqueta y deja afuera lo impreso en la bolsa`() {
+        // Etiqueta ficticia: número grande, tipo de componente y vencimiento juntos;
+        // lejos, el texto impreso en la bolsa
+        val e = pagina(3000, 4000) {
+            linea("BANCO FICTICIO", 1000, 1500)
+            linea("900123G", 1000, 1600, altoLetra = 80)
+            linea("PLAQUETAS", 1000, 1900)
+            linea("Vence 01/01/2027", 1000, 1980)
+            linea("BOLSA CPD-A1 450 ML", 1000, 3700)
+        }
+        val id = e.lineas.first { it.texto == "900123G" }.caja!!
+        val z = FilaCompacta.zonaEtiqueta(e, id)
+        val vence = e.lineas.first { it.texto.startsWith("Vence") }.caja!!
+        val banco = e.lineas.first { it.texto.startsWith("BANCO") }.caja!!
+        val bolsa = e.lineas.first { it.texto.startsWith("BOLSA") }.caja!!
+        assertTrue(z.abajo >= vence.abajo && z.arriba <= banco.arriba)
+        assertTrue(z.abajo < bolsa.arriba)
+        assertEquals(id, FilaCompacta.buscarEnEtiqueta(e, "900123"))
+    }
 }

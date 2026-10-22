@@ -33,9 +33,12 @@ fun decodificarReducido(jpeg: ByteArray, ladoMax: Int): Bitmap? {
  * Imagen ampliada de una fila de la planilla con su encabezado encima, recortados con el mismo
  * ancho para que las columnas queden alineadas (como en la hoja). Si el encabezado está cerca de
  * la fila se recorta un solo bloque; si está lejos, se apilan las dos franjas con una línea
- * separadora. Todo en memoria. Null si no se conoce la ubicación de la fila.
+ * separadora. [marcas] (p. ej. los resultados «REACTIVO») se recuadran en rojo. Todo en memoria.
+ * Null si no se conoce la ubicación de la fila.
  */
-fun componerFila(bmp: Bitmap, encabezado: Caja?, fila: Caja?, anchoReferencia: Int, altoReferencia: Int): Bitmap? {
+fun componerFila(
+    bmp: Bitmap, encabezado: Caja?, fila: Caja?, anchoReferencia: Int, altoReferencia: Int, marcas: List<Caja> = emptyList(),
+): Bitmap? {
     val f = fila ?: return null
     val escala = bmp.width.toFloat() / anchoReferencia.coerceAtLeast(1)
     val margen = maxOf(f.alto, 12)
@@ -49,7 +52,8 @@ fun componerFila(bmp: Bitmap, encabezado: Caja?, fila: Caja?, anchoReferencia: I
     val e = encabezado
     if (e == null || f.arriba - e.abajo <= f.alto * 4) {
         val c = franja(if (e == null) f else Caja(f.izq, minOf(e.arriba, f.arriba), f.der, maxOf(e.abajo, f.abajo))) ?: return null
-        return Bitmap.createBitmap(bmp, c.izq, c.arriba, c.ancho, c.alto)
+        val salida = Bitmap.createBitmap(bmp, c.izq, c.arriba, c.ancho, c.alto)
+        return if (marcas.isEmpty()) salida else marcarEnRojo(salida.copy(Bitmap.Config.ARGB_8888, true), marcas, escala, c.izq, c.arriba)
     }
     val ce = franja(e) ?: return null
     val cf = franja(f) ?: return null
@@ -59,6 +63,23 @@ fun componerFila(bmp: Bitmap, encabezado: Caja?, fila: Caja?, anchoReferencia: I
     lienzo.drawColor(android.graphics.Color.GRAY)
     lienzo.drawBitmap(bmp, android.graphics.Rect(ce.izq, ce.arriba, ce.der, ce.abajo), android.graphics.Rect(0, 0, ce.ancho, ce.alto), null)
     lienzo.drawBitmap(bmp, android.graphics.Rect(cf.izq, cf.arriba, cf.der, cf.abajo), android.graphics.Rect(0, ce.alto + separacion, cf.ancho, ce.alto + separacion + cf.alto), null)
+    return marcarEnRojo(salida, marcas, escala, cf.izq, cf.arriba - ce.alto - separacion)
+}
+
+/** Recuadra en rojo [marcas] (coordenadas de referencia) sobre [salida], desplazadas por el recorte. */
+private fun marcarEnRojo(salida: Bitmap, marcas: List<Caja>, escala: Float, dx: Int, dy: Int): Bitmap {
+    if (marcas.isEmpty()) return salida
+    val lienzo = android.graphics.Canvas(salida)
+    for (m in marcas) {
+        val pad = m.alto * escala / 4
+        val pincel = android.graphics.Paint().apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = maxOf(3f, m.alto * escala / 8)
+            color = 0xFFD32F2F.toInt()
+            isAntiAlias = true
+        }
+        lienzo.drawRect(m.izq * escala - dx - pad, m.arriba * escala - dy - pad, m.der * escala - dx + pad, m.abajo * escala - dy + pad, pincel)
+    }
     return salida
 }
 

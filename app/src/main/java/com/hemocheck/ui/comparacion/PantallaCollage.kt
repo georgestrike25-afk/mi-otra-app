@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -58,7 +59,6 @@ import com.hemocheck.ui.comun.Aviso
 import com.hemocheck.ui.comun.Barra
 import com.hemocheck.ui.comun.Etiqueta
 import com.hemocheck.ui.comun.Gravedad
-import com.hemocheck.ui.comun.ImagenAmpliable
 import com.hemocheck.ui.comun.TextoId
 import com.hemocheck.ui.comun.VisorImagen
 import com.hemocheck.ui.comun.formatearFecha
@@ -128,8 +128,8 @@ fun PantallaCollage(
 
             // Las tres imágenes, grandes y pegadas
             Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.background(Color.Black)) {
-                ImagenesDeTipo(conv, stringResource(R.string.tipo_convencional), d, imagenes, lecturas)
-                ImagenesDeTipo(mol, stringResource(R.string.tipo_molecular), d, imagenes, lecturas)
+                ImagenesDeTipo(conv, stringResource(R.string.tipo_convencional), stringResource(R.string.insignia_convencional), d, imagenes, lecturas)
+                ImagenesDeTipo(mol, stringResource(R.string.tipo_molecular), stringResource(R.string.insignia_molecular), d, imagenes, lecturas)
                 ImagenEtiqueta(d, imagenes)
             }
 
@@ -176,15 +176,27 @@ private fun leer(r: RegistroEncontrado): Lectura {
     return Lectura(estado, ocr, reactivos)
 }
 
-/** Imagen a todo el ancho, respetando su proporción; al tocarla se abre ampliable. */
+/**
+ * Imagen a todo el ancho, respetando su proporción; al tocarla se abre ampliable.
+ * [insignia] («SC» o «NAT») se muestra chiquita en la esquina.
+ */
 @Composable
-private fun ImagenAncha(bmp: Bitmap, descripcion: String) {
+private fun ImagenAncha(bmp: Bitmap, descripcion: String, insignia: String? = null) {
     var abierta by remember { mutableStateOf(false) }
     val imagen = remember(bmp) { bmp.asImageBitmap() }
-    Image(
-        imagen, contentDescription = descripcion, contentScale = ContentScale.FillWidth,
-        modifier = Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height.coerceAtLeast(1)).clickable { abierta = true },
-    )
+    Box {
+        Image(
+            imagen, contentDescription = descripcion, contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height.coerceAtLeast(1)).clickable { abierta = true },
+        )
+        if (insignia != null) {
+            Text(
+                insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                    .background(Color(0xCC263238), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+    }
     if (abierta) VisorImagen(bmp, descripcion) { abierta = false }
 }
 
@@ -199,6 +211,7 @@ private fun Faltante(texto: String) {
 private fun ImagenesDeTipo(
     registros: List<RegistroEncontrado>,
     tipo: String,
+    insignia: String,
     d: DatosComparacion,
     imagenes: Map<Long, Bitmap>,
     lecturas: Map<Long, Lectura>,
@@ -227,7 +240,14 @@ private fun ImagenesDeTipo(
                         else -> componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada)
                     }
                 }
-                ImagenAncha(recorte ?: bmp, stringResource(R.string.collage_recorte_compacto))
+                ImagenAncha(recorte ?: bmp, stringResource(R.string.collage_recorte_compacto), insignia)
+                // Debajo, la fila completa con los encabezados: qué determinación es reactiva (en rojo)
+                val fila = remember(bmp, e.id) {
+                    val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.mapNotNull { it.caja }
+                    componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada, reactivos)
+                }
+                val compacto = e.cajaId != null && lectura?.ocr != null
+                if (fila != null && compacto) ImagenAncha(fila, stringResource(R.string.recorte_fila), insignia)
             }
         }
     }
@@ -241,8 +261,12 @@ private fun ImagenEtiqueta(d: DatosComparacion, imagenes: Map<Long, Bitmap>) {
         pagina == null -> Faltante(stringResource(R.string.comparacion_sin_foto_etiqueta))
         bmp == null -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         else -> {
+            // Solo la etiqueta (el texto agrupado alrededor del número), no toda la bolsa
             val recorte = remember(bmp) {
-                d.verificacion.cajaIdEtiqueta?.let { c -> recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(c), null, pagina.anchoProcesada, alerta = false) }
+                val ocr = pagina.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() }
+                val c = d.verificacion.cajaIdEtiqueta
+                    ?: d.informe.idEtiqueta?.let { id -> ocr?.let { FilaCompacta.buscarEnEtiqueta(it, id) } }
+                c?.let { recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(ocr, it), null, pagina.anchoProcesada, alerta = false) }
             }
             ImagenAncha(recorte ?: bmp, stringResource(R.string.comparacion_foto_etiqueta))
         }
@@ -275,20 +299,6 @@ private fun DetalleTipo(
         }
         if (l?.discrepancia == true) {
             Etiqueta(stringResource(R.string.collage_discrepancia, l.reactivos.joinToString(", ")), Icons.Filled.WarningAmber, Gravedad.ADVERTENCIA)
-        }
-        var verFila by remember(r.entrada.id) { mutableStateOf(false) }
-        val pagina = r.pagina
-        val bmp = pagina?.let { imagenes[it.id] }
-        if (bmp != null && pagina != null) {
-            TextButton(onClick = { verFila = !verFila }) {
-                Text(stringResource(if (verFila) R.string.collage_ocultar_fila else R.string.collage_ver_fila))
-            }
-            if (verFila) {
-                val fila = remember(bmp, r.entrada.id) {
-                    componerFila(bmp, r.entrada.cajaEncabezados, r.entrada.cajaFila ?: r.entrada.cajaId, pagina.anchoProcesada, pagina.altoProcesada)
-                }
-                ImagenAmpliable(fila ?: bmp, stringResource(R.string.recorte_fila), alturaMax = 300)
-            }
         }
         TextButton(onClick = { onAbrirEntrada(r.entrada.id) }) { Text(stringResource(R.string.collage_ver_pagina)) }
     }

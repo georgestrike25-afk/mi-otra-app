@@ -286,6 +286,8 @@
     <string name="collage_falta_tipo">%1$s: no se encontró el número %2$s en las hojas guardadas</string>
     <string name="collage_sin_estado">No se encontró la columna «Estado» de esta fila: mirá la fila completa.</string>
     <string name="collage_discrepancia">Se leyó «REACTIVO» en %1$s pero la planilla dice «Apto»: probable error de lectura, verificá la fila completa.</string>
+    <string name="insignia_convencional">SC</string>
+    <string name="insignia_molecular">NAT</string>
     <string name="collage_titulo">Corroboración visual</string>
     <string name="collage_ayuda">Compará con tus propios ojos el número en las tres imágenes y leé los resultados en las planillas. Tocá una imagen para ampliarla (pellizcá para hacer zoom).</string>
     <string name="collage_no_encontrado">No se encontró el número %1$s en las hojas guardadas de este tipo.</string>
