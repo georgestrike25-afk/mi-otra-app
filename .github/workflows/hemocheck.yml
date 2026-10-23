@@ -160,3 +160,16 @@ jobs:
           name: capturas-pantalla
           path: capturas/
           if-no-files-found: ignore
+
+      # Las capturas (solo datos ficticios) se publican también en una rama aparte para verlas fácil
+      - name: Publicar capturas en la rama "capturas"
+        if: always()
+        run: |
+          [ -d capturas ] && [ -n "$(ls -A capturas)" ] || exit 0
+          cd capturas
+          git init -q -b capturas
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Capturas de ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" capturas
