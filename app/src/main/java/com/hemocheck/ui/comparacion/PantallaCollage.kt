@@ -193,7 +193,7 @@ private fun ImagenAncha(bmp: Bitmap, descripcion: String, insignia: String? = nu
             Text(
                 insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
-                    .background(Color(0xCC263238), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+                    .background(Color(0xEB123F68), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
     }

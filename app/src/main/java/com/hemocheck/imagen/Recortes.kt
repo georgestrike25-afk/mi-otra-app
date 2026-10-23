@@ -97,7 +97,7 @@ fun recortarConMarca(bmp: Bitmap, zona: Caja, marca: Caja?, anchoReferencia: Int
         val pincel = android.graphics.Paint().apply {
             style = android.graphics.Paint.Style.STROKE
             strokeWidth = maxOf(4f, m.alto / 10f)
-            color = if (alerta) 0xFFD32F2F.toInt() else 0xFF1565C0.toInt()
+            color = if (alerta) 0xFFD32F2F.toInt() else 0xFF08B5D6.toInt()
             isAntiAlias = true
         }
         android.graphics.Canvas(salida).drawRect(

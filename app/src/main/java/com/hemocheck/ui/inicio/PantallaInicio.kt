@@ -1,6 +1,9 @@
 package com.hemocheck.ui.inicio
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -80,7 +83,12 @@ fun PantallaInicio(
 private fun Opcion(icono: ImageVector, titulo: Int, descripcion: Int, tag: String, onClick: () -> Unit) {
     ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp).testTag(tag)) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icono, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+            Box(
+                Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icono, contentDescription = null, modifier = Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
+            }
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(stringResource(titulo), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

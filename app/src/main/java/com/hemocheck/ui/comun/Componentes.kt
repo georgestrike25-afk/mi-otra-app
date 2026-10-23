@@ -119,7 +119,12 @@ fun Aviso(texto: String, gravedad: Gravedad = Gravedad.ADVERTENCIA, modifier: Mo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Barra(titulo: String, onAtras: (() -> Unit)?, acciones: @Composable () -> Unit = {}) {
+    val c = com.hemocheck.ui.tema.LocalColoresBarra.current
     TopAppBar(
+        colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+            containerColor = c.fondo, titleContentColor = c.frente,
+            navigationIconContentColor = c.frente, actionIconContentColor = c.iconos,
+        ),
         title = { Text(titulo) },
         navigationIcon = {
             if (onAtras != null) {

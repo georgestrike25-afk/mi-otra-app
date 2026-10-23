@@ -62,29 +62,26 @@ object FilaCompacta {
         )
 
     /**
-     * Zona de la etiqueta pegada en la bolsa: el texto agrupado alrededor del número (líneas
-     * cercanas entre sí), sin alejarse más que el tamaño típico de una etiqueta. Así se ve la
-     * etiqueta completa pero no toda la bolsa.
+     * Zona de la etiqueta adhesiva del número: las dos o tres líneas de arriba (servicio,
+     * componente), la línea del número y el código de barras con su texto debajo. Se toma solo
+     * el texto apilado sobre la línea del número (no lo que está al costado, que es la bolsa u
+     * otra etiqueta), así se ve la etiqueta y no toda la bolsa.
      */
     fun zonaEtiqueta(pagina: PaginaOcr?, cajaId: Caja): Caja {
-        val minima = zonaEtiqueta(cajaId)
-        if (pagina == null) return minima
-        val h = cajaId.alto.coerceAtLeast(1)
-        val limite = Caja(
-            cajaId.izq - cajaId.ancho * 2, cajaId.arriba - h * 10,
-            cajaId.der + cajaId.ancho * 2, cajaId.abajo + h * 12,
-        )
-        val dentro = pagina.lineas.mapNotNull { it.caja }.filter { it.esValida && contiene(limite, it) }
-        var grupo = minima
-        var pendientes = dentro
-        val salto = h * 2
-        while (true) {
-            val cercanas = pendientes.filter { distancia(grupo, it) <= salto }
-            if (cercanas.isEmpty()) break
-            grupo = Caja.unionDe(cercanas + grupo)!!
-            pendientes = pendientes - cercanas.toSet()
+        val lineas = pagina?.lineas?.mapNotNull { it.caja }?.filter { it.esValida }.orEmpty()
+        // La línea completa del número (p. ej. «Unidad:295216G»)
+        val base = lineas.filter { contiene(it.expandir(2, 2), cajaId) }.minByOrNull { it.area } ?: cajaId
+        val h = base.alto.coerceAtLeast(1)
+        val arriba = base.arriba - (h * 2.8f).toInt()
+        val abajo = base.abajo + (h * 3.0f).toInt()
+        val apiladas = lineas.filter { l ->
+            l.centroY >= arriba && l.centroY <= abajo &&
+                l.superposicionHorizontal(base) >= minOf(l.ancho, base.ancho) / 2
         }
-        return grupo.expandir(h / 2, h / 2)
+        val tope = base.der + base.ancho / 4
+        val izq = (apiladas.minOfOrNull { it.izq } ?: base.izq).coerceAtLeast(base.izq - base.ancho / 4)
+        val der = (apiladas.maxOfOrNull { it.der } ?: base.der).coerceAtMost(tope)
+        return Caja(izq - h / 2, arriba, der + h / 2, abajo)
     }
 
     /** Ubica el número en el OCR de la etiqueta si no se guardó su posición (p. ej. lectura por código de barras). */
@@ -94,9 +91,4 @@ object FilaCompacta {
 
     private fun contiene(a: Caja, b: Caja) = b.izq >= a.izq && b.der <= a.der && b.arriba >= a.arriba && b.abajo <= a.abajo
 
-    private fun distancia(a: Caja, b: Caja): Int {
-        val dx = max(0, max(a.izq - b.der, b.izq - a.der))
-        val dy = max(0, max(a.arriba - b.abajo, b.arriba - a.abajo))
-        return max(dx, dy)
-    }
 }

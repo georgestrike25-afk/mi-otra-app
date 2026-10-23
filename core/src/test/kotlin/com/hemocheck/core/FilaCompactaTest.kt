@@ -43,23 +43,25 @@ class FilaCompactaTest {
     }
 
     @Test
-    fun `zona de la etiqueta toma la etiqueta y deja afuera lo impreso en la bolsa`() {
-        // Etiqueta ficticia: número grande, tipo de componente y vencimiento juntos;
-        // lejos, el texto impreso en la bolsa
-        val e = pagina(3000, 4000) {
-            linea("BANCO FICTICIO", 1000, 1500)
-            linea("900123G", 1000, 1600, altoLetra = 80)
-            linea("PLAQUETAS", 1000, 1900)
-            linea("Vence 01/01/2027", 1000, 1980)
-            linea("BOLSA CPD-A1 450 ML", 1000, 3700)
+    fun `zona de la etiqueta toma solo la etiqueta adhesiva`() {
+        // Etiqueta ficticia con el formato local; al costado, texto impreso en la bolsa,
+        // y debajo otra etiqueta
+        val e = pagina(1200, 2000) {
+            linea("Hospital Ficticio - F.Ext:1/1/2026", 260, 680, altoLetra = 26)
+            linea("Globulos Rojos Sedimentados", 260, 720, altoLetra = 28)
+            linea("Unidad:900123G", 260, 760, altoLetra = 36)
+            linea("*900123G*", 340, 850, altoLetra = 20)
+            linea("CPD-OPTISOL 450 mL", 820, 730, altoLetra = 22)
+            linea("A POS Ext:900123", 240, 1000, altoLetra = 34)
         }
-        val id = e.lineas.first { it.texto == "900123G" }.caja!!
+        val linea = e.lineas.first { it.texto.startsWith("Unidad") }.caja!!
+        val id = Caja(linea.der - 7 * 22, linea.arriba, linea.der, linea.abajo)
         val z = FilaCompacta.zonaEtiqueta(e, id)
-        val vence = e.lineas.first { it.texto.startsWith("Vence") }.caja!!
-        val banco = e.lineas.first { it.texto.startsWith("BANCO") }.caja!!
-        val bolsa = e.lineas.first { it.texto.startsWith("BOLSA") }.caja!!
-        assertTrue(z.abajo >= vence.abajo && z.arriba <= banco.arriba)
-        assertTrue(z.abajo < bolsa.arriba)
-        assertEquals(id, FilaCompacta.buscarEnEtiqueta(e, "900123"))
+        fun c(t: String) = e.lineas.first { it.texto.startsWith(t) }.caja!!
+        assertTrue(z.arriba <= c("Hospital").arriba && z.abajo >= c("*900123G*").abajo)
+        assertTrue(z.izq <= linea.izq)
+        assertTrue(z.der < c("CPD").izq)
+        assertTrue(z.abajo < c("A POS").arriba)
+        assertEquals(linea, FilaCompacta.buscarEnEtiqueta(e, "900123"))
     }
 }
