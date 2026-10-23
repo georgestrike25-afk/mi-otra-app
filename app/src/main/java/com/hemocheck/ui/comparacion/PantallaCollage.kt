@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -177,6 +179,39 @@ private fun leer(r: RegistroEncontrado): Lectura {
 }
 
 /**
+ * Fila completa de la planilla (muy ancha): se muestra a una altura legible y se desliza de
+ * costado; al tocarla se abre ampliable.
+ */
+@Composable
+private fun ImagenFila(bmp: Bitmap, descripcion: String, insignia: String) {
+    val proporcion = bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
+    if (proporcion < 5f) {
+        ImagenAncha(bmp, descripcion, insignia)
+        return
+    }
+    var abierta by remember { mutableStateOf(false) }
+    val imagen = remember(bmp) { bmp.asImageBitmap() }
+    val alto = 96.dp
+    Box(Modifier.fillMaxWidth().background(Color.White)) {
+        Image(
+            imagen, contentDescription = descripcion, contentScale = ContentScale.FillHeight,
+            modifier = Modifier.horizontalScroll(rememberScrollState()).height(alto).width(alto * proporcion).clickable { abierta = true },
+        )
+        Text(
+            insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                .background(Color(0xEB123F68), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+        Text(
+            stringResource(R.string.collage_deslizar), color = Color.White, style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
+                .background(Color(0xCC10151D), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+    if (abierta) VisorImagen(bmp, descripcion) { abierta = false }
+}
+
+/**
  * Imagen a todo el ancho, respetando su proporción; al tocarla se abre ampliable.
  * [insignia] («SC» o «NAT») se muestra chiquita en la esquina.
  */
@@ -247,7 +282,7 @@ private fun ImagenesDeTipo(
                     componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada, reactivos)
                 }
                 val compacto = e.cajaId != null && lectura?.ocr != null
-                if (fila != null && compacto) ImagenAncha(fila, stringResource(R.string.recorte_fila), insignia)
+                if (fila != null && compacto) ImagenFila(fila, stringResource(R.string.recorte_fila), insignia)
             }
         }
     }
