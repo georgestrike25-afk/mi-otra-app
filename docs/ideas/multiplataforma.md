@@ -40,3 +40,9 @@ Antes de construirla: probar el OCR web con planillas reales en PDF y en foto.
 - A resolver con cuidado: hoy el APK **no tiene permiso de Internet** (requisito de seguridad).
   Opciones: (a) transferencia solo en la red local sin Internet, (b) cifrado de extremo a extremo
   con la clave que va en el QR, para que ningún servidor intermedio pueda leer los PDF.
+
+## Criterio de seguridad acordado con el usuario
+Las planillas solo tienen números de unidad y resultados, sin datos que identifiquen a la
+persona. Para la sincronización PC ↔ celular se prioriza **que funcione simple** sobre la
+protección máxima: se puede habilitar Internet solo para esa función. Se mantienen las
+protecciones actuales que no estorban (PIN, cifrado local, borrado a los 6 meses).
