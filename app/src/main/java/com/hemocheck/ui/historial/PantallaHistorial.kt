@@ -81,7 +81,7 @@ fun PantallaHistorial(
                 if (lista.isEmpty()) Text(stringResource(R.string.historial_vacio), Modifier.padding(16.dp))
                 LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(lista, key = { it.id }) { v ->
-                        Card(Modifier.fillMaxWidth().clickable { onAbrirVerificacion(v.id) }) {
+                        Card(Modifier.fillMaxWidth().clickable { onAbrirVerificacion(v.id) }.testTag("verificacion_${v.id}")) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 TextoId(v.idEtiqueta)
                                 Text(stringResource(R.string.historial_fecha, formatearFecha(v.creado)), style = MaterialTheme.typography.bodySmall)
