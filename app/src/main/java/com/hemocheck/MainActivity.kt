@@ -41,7 +41,8 @@ class MainActivity : FragmentActivity() {
         // Impide capturas de pantalla, grabaciones y la vista previa en «Recientes»
         aplicarProteccionDePantalla()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(false)
-        enableEdgeToEdge()
+        // La barra superior es oscura en los dos modos (azul institucional o carbón): íconos claros
+        enableEdgeToEdge(statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
 
         val app = application as HemoCheckApp
         setContent {
