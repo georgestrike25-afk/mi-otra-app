@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -178,6 +179,21 @@ private fun leer(r: RegistroEncontrado): Lectura {
     return Lectura(estado, ocr, reactivos)
 }
 
+/** Franja finita con la marca «SC»/«NAT» encima de la foto, para no tapar ningún número. */
+@Composable
+private fun FranjaInsignia(insignia: String, extra: String? = null) {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xFF123F68)).padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+        if (extra != null) {
+            Spacer(Modifier.weight(1f))
+            Text(extra, color = Color(0xFFBFE9F3), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 /**
  * Fila completa de la planilla (muy ancha): se muestra a una altura legible y se desliza de
  * costado; al tocarla se abre ampliable.
@@ -192,20 +208,11 @@ private fun ImagenFila(bmp: Bitmap, descripcion: String, insignia: String) {
     var abierta by remember { mutableStateOf(false) }
     val imagen = remember(bmp) { bmp.asImageBitmap() }
     val alto = 96.dp
-    Box(Modifier.fillMaxWidth().background(Color.White)) {
+    Column(Modifier.fillMaxWidth().background(Color.White)) {
+        FranjaInsignia(insignia, stringResource(R.string.collage_deslizar))
         Image(
             imagen, contentDescription = descripcion, contentScale = ContentScale.FillHeight,
             modifier = Modifier.horizontalScroll(rememberScrollState()).height(alto).width(alto * proporcion).clickable { abierta = true },
-        )
-        Text(
-            insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
-                .background(Color(0xEB123F68), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-        )
-        Text(
-            stringResource(R.string.collage_deslizar), color = Color.White, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
-                .background(Color(0xCC10151D), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
     if (abierta) VisorImagen(bmp, descripcion) { abierta = false }
@@ -213,24 +220,18 @@ private fun ImagenFila(bmp: Bitmap, descripcion: String, insignia: String) {
 
 /**
  * Imagen a todo el ancho, respetando su proporción; al tocarla se abre ampliable.
- * [insignia] («SC» o «NAT») se muestra chiquita en la esquina.
+ * [insignia] («SC» o «NAT») va en una franja finita arriba.
  */
 @Composable
 private fun ImagenAncha(bmp: Bitmap, descripcion: String, insignia: String? = null) {
     var abierta by remember { mutableStateOf(false) }
     val imagen = remember(bmp) { bmp.asImageBitmap() }
-    Box {
+    Column(Modifier.fillMaxWidth()) {
+        if (insignia != null) FranjaInsignia(insignia)
         Image(
             imagen, contentDescription = descripcion, contentScale = ContentScale.FillWidth,
             modifier = Modifier.fillMaxWidth().aspectRatio(bmp.width.toFloat() / bmp.height.coerceAtLeast(1)).clickable { abierta = true },
         )
-        if (insignia != null) {
-            Text(
-                insignia, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
-                    .background(Color(0xEB123F68), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-        }
     }
     if (abierta) VisorImagen(bmp, descripcion) { abierta = false }
 }
