@@ -31,3 +31,12 @@ Antes de construirla: probar el OCR web con planillas reales en PDF y en foto.
 ## Pendiente de decidir
 - Mecanismo PC → celular sin Internet (USB, carpeta compartida local o código QR por lotes).
 - Forma gratuita estable para iPhone (PWA es la única sin costo y sin reinstalar cada 7 días).
+
+## Preferencias del usuario (para retomar)
+- Pasar los PDF de la PC al celular **por Wi-Fi o datos móviles**, emparejando con un **código QR**
+  (la PC muestra el QR, el celular lo escanea con la cámara integrada y quedan sincronizados).
+- Las planillas probablemente lleguen **por mail**: en la PC se descargan y se envían al celular.
+- Esquema **mixto**: también se pueden subir los PDF directo desde el celular (ya implementado).
+- A resolver con cuidado: hoy el APK **no tiene permiso de Internet** (requisito de seguridad).
+  Opciones: (a) transferencia solo en la red local sin Internet, (b) cifrado de extremo a extremo
+  con la clave que va en el QR, para que ningún servidor intermedio pueda leer los PDF.
