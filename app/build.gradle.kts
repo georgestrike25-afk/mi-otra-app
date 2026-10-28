@@ -52,10 +52,20 @@ android {
             // reduce el APK a la mitad. La versión de depuración conserva todas las arquitecturas
             // para poder probarla en el emulador.
             ndk { abiFilters += listOf("arm64-v8a") }
-            isMinifyEnabled = false
+            // R8: quita el código y los recursos de librerías que no se usan (APK mucho más liviano)
+            isMinifyEnabled = true
+            isShrinkResources = true
             isDebuggable = false
             signingConfig = signingConfigs.getByName("hemocheck")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // Igual a la versión de uso (optimizada con R8) pero con todas las arquitecturas, para
+        // comprobar en el emulador de la CI que la versión optimizada arranca bien.
+        create("verificacion") {
+            initWith(getByName("release"))
+            ndk { abiFilters.clear() }
+            applicationIdSuffix = ".verificacion"
+            matchingFallbacks += listOf("release")
         }
     }
 

@@ -10,6 +10,7 @@ on:
       - '*.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/hemocheck.yml'
+      - 'scripts/**'
   workflow_dispatch:
 
 permissions:
@@ -80,16 +81,21 @@ jobs:
         run: |
           set -euo pipefail
           cp app/build/outputs/apk/release/app-release.apk HemoCheck.apk
+          version="0.1.${GITHUB_RUN_NUMBER}"
+          # Versión numerada (como la app de Finanzas): https://github.com/<dueño>/<repo>/releases/latest
+          cp HemoCheck.apk "HemoCheck-${version}.apk"
+          gh release create "hemocheck-v${version}" "HemoCheck-${version}.apk" --target "$GITHUB_SHA" \
+            --title "HemoCheck ${version}" --notes "APK de HemoCheck ${version}. Descargar el archivo .apk desde el celular, abrirlo y permitir instalar apps de este origen." --latest
           etiqueta="hemocheck-ultima-version"
           titulo="HemoCheck (última versión de prueba)"
           notas="HemoCheck 0.1.${GITHUB_RUN_NUMBER}, compilado desde ${GITHUB_REF_NAME} (${GITHUB_SHA::7}) el $(date -u '+%d/%m/%Y %H:%M') UTC. Versión de prueba: usar solo con documentos ficticios hasta validarla en el servicio."
           git tag -f "$etiqueta"
           git push -f origin "refs/tags/$etiqueta"
           if gh release view "$etiqueta" > /dev/null 2>&1; then
-            gh release edit "$etiqueta" --title "$titulo" --notes "$notas" --prerelease=false --latest
+            gh release edit "$etiqueta" --title "$titulo" --notes "$notas" --prerelease=false --latest=false
             gh release upload "$etiqueta" HemoCheck.apk --clobber
           else
-            gh release create "$etiqueta" HemoCheck.apk --title "$titulo" --notes "$notas" --prerelease=false --latest
+            gh release create "$etiqueta" HemoCheck.apk --title "$titulo" --notes "$notas" --prerelease=false --latest=false
           fi
 
   emulador:
@@ -141,6 +147,9 @@ jobs:
             adb logcat -c
             ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (adb logcat -d > logcat.txt; adb pull /sdcard/capturas capturas || true; exit 1)
             adb pull /sdcard/capturas capturas || true
+            # La versión optimizada con R8 (igual a la de uso) debe arrancar sin cerrarse
+            ./gradlew assembleVerificacion --no-daemon
+            bash scripts/verificar-version-optimizada.sh
 
       - name: Guardar informes del emulador
         if: always()
@@ -151,6 +160,7 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             logcat.txt
+            logcat-verificacion.txt
           if-no-files-found: ignore
 
       - name: Guardar capturas de pantalla
