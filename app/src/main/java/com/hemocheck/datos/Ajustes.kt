@@ -26,8 +26,9 @@ class Ajustes(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean("permitir_capturas", false)
         set(v) = guardar { putBoolean("permitir_capturas", v) }
 
+    /** Desbloqueo con huella: activado por omisión si el teléfono la tiene (el PIN queda de respaldo). */
     var biometria: Boolean
-        get() = prefs.getBoolean("biometria", false)
+        get() = prefs.getBoolean("biometria", true)
         set(v) = guardar { putBoolean("biometria", v) }
 
     var identificadores: ConfiguracionIdentificadores
