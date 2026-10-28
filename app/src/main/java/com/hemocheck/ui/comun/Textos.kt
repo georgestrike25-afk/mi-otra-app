@@ -104,6 +104,8 @@ fun textoProblema(p: Problema): Int = when (p) {
     Problema.SIN_RESULTADOS -> R.string.problema_sin_resultados
     Problema.VALOR_NO_INTERPRETADO -> R.string.problema_no_interpretado
     Problema.RESULTADOS_SUELTOS_EN_PAGINA -> R.string.problema_sueltos
+    Problema.ID_FUERA_DE_ORDEN -> R.string.collage_fuera_de_orden
+    Problema.ID_CORREGIDO_POR_ORDEN -> R.string.problema_corregido_por_orden
 }
 
 fun textoAvisoPagina(a: AvisoPagina): Int = when (a) {

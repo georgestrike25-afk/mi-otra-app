@@ -181,6 +181,7 @@
     <string name="resultado_baja_confianza">Lectura de baja confianza: verificá este resultado.</string>
 
     <!-- Problemas del análisis -->
+    <string name="problema_corregido_por_orden">El número se corrigió por el orden de la planilla (un dígito confundido).</string>
     <string name="problema_id_baja_confianza">El identificador se leyó con baja confianza.</string>
     <string name="problema_id_dudoso">El identificador tiene caracteres dudosos (por ejemplo O/0, I/1, S/5).</string>
     <string name="problema_id_control">El carácter de control ISBT 128 no coincide: probablemente hay un error de lectura.</string>
