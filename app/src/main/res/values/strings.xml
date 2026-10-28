@@ -125,6 +125,9 @@
     <string name="registro_procedencia_ayuda">Carpeta, libro o lote de origen. No escribas datos personales del donante.</string>
     <string name="registro_paginas">Páginas capturadas: %1$d</string>
     <string name="registro_fotografiar_primera">Fotografiar hoja</string>
+    <string name="registro_ya_guardadas">Estas hojas ya estaban guardadas: no se duplicaron.</string>
+    <string name="registro_pagina_nat">Reconocida como NAT (molecular)</string>
+    <string name="registro_pagina_sc">Reconocida como SC (convencional)</string>
     <string name="registro_subir_pdf">Subir planilla en PDF</string>
     <string name="pdf_abriendo">Abriendo el PDF…</string>
     <string name="pdf_leyendo">Leyendo página %1$d de %2$d…</string>

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.ui.comun.relevante
 import com.hemocheck.core.etiqueta.AvisoEtiqueta
 import com.hemocheck.core.identificador.IdUnidad
 import com.hemocheck.datos.ArchivosCifrados
@@ -105,14 +106,13 @@ fun PantallaRevisionEtiqueta(contenedor: Contenedor, onRepetir: () -> Unit, onVe
                 if (recorte != null) {
                     Text(stringResource(R.string.etiqueta_recorte_id), style = MaterialTheme.typography.titleSmall)
                     ImagenAmpliable(recorte, stringResource(R.string.etiqueta_recorte_id), alturaMax = 120)
-                } else {
-                    Aviso(stringResource(R.string.etiqueta_sin_recorte), Gravedad.ADVERTENCIA)
                 }
             }
             if (pagina.errorOcr) Aviso(stringResource(R.string.revision_error_ocr), Gravedad.PELIGRO)
-            pagina.avisos.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
-            lectura.avisos.forEach {
-                Aviso(stringResource(textoAvisoEtiqueta(it)), if (it == AvisoEtiqueta.BARRAS_CONCORDANTE) Gravedad.CORRECTO else Gravedad.ADVERTENCIA)
+            pagina.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
+            // Solo las advertencias que cambian algo (no hay número, hay varios o el código de barras no coincide)
+            lectura.avisos.filter { it in AVISOS_ETIQUETA_RELEVANTES }.forEach {
+                Aviso(stringResource(textoAvisoEtiqueta(it)), Gravedad.ADVERTENCIA)
             }
             lectura.idCodigoBarras?.let { Text(stringResource(R.string.etiqueta_codigo_barras, formatearId(it)), style = MaterialTheme.typography.bodySmall) }
 
@@ -181,3 +181,8 @@ fun PantallaRevisionEtiqueta(contenedor: Contenedor, onRepetir: () -> Unit, onVe
         )
     }
 }
+
+private val AVISOS_ETIQUETA_RELEVANTES = setOf(
+    AvisoEtiqueta.SIN_TEXTO, AvisoEtiqueta.SIN_IDENTIFICADOR, AvisoEtiqueta.VARIOS_IDENTIFICADORES,
+    AvisoEtiqueta.CONTROL_INVALIDO, AvisoEtiqueta.BARRAS_DISCORDANTE,
+)

@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import com.hemocheck.captura.EstadoBorradorSerologia
+import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.captura.FilaEditable
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.captura.ResultadoEditable
@@ -78,35 +79,84 @@ class Repositorio(
 
     // ---------------- Registro de serología ----------------
 
-    /** Guarda el lote: imágenes cifradas, filas revisadas, resultados y correcciones. */
+    /**
+     * Guarda las hojas: imágenes cifradas, filas, resultados y correcciones. Cada página se guarda
+     * con el tipo reconocido en su análisis (NAT o SC, por los encabezados) y no se repiten filas:
+     * si la misma unidad ya está guardada con el mismo tipo y los mismos resultados (p. ej. la
+     * misma hoja fotografiada dos veces), se omite. Devuelve el id del primer lote guardado.
+     */
     suspend fun guardarSerologia(b: EstadoBorradorSerologia): Long = withContext(Dispatchers.IO) {
         val ahora = ahora()
         val vence = PoliticaRetencion.vencimientoMillis(ahora, zona())
+        val dao = bd.serologia()
+        fun tipoDe(paginaUid: String) = b.analisis[paginaUid]?.tipo ?: b.tipo
+
+        val conservadas = mutableListOf<FilaEditable>()
+        for (f in b.filas) {
+            if (f.descartada || f.idTexto.isBlank()) continue
+            val canon = canonizar(f.idTexto)
+            val tipo = tipoDe(f.paginaUid)
+            val res = f.resultados.associate { it.clave to it.categoria }
+            val repetidaEnLote = conservadas.any { o ->
+                canonizar(o.idTexto) == canon && tipoDe(o.paginaUid) == tipo && compatibles(res, o.resultados.associate { it.clave to it.categoria })
+            }
+            val yaGuardada = !repetidaEnLote && dao.entradasPorId(canon, ahora).any { e ->
+                e.tipo == tipo && compatibles(res, dao.resultados(e.id, ahora).associate { it.clave to it.categoria })
+            }
+            if (!repetidaEnLote && !yaGuardada) conservadas += f
+        }
+        // Páginas: las que aportan filas nuevas, o las que no tenían filas leídas (quedan como evidencia)
+        val paginas = b.paginas.filter { p -> conservadas.any { it.paginaUid == p.uid } || b.filas.none { it.paginaUid == p.uid } }
+        if (paginas.isEmpty()) throw SinNovedadesException()
+
         val escritos = mutableListOf<String>()
         try {
-            val guardadas = b.paginas.map { p -> p to escribirPagina(p, escritos) }
+            val guardadas = paginas.map { p -> p to escribirPagina(p, escritos) }
             bd.runInTransaction<Long> {
-                val dao = bd.serologia()
-                val loteId = dao.insertarLote(LoteEntidad(tipo = b.tipo, procedencia = b.procedencia, creado = ahora, vence = vence))
-                val paginaIdPorUid = guardadas.mapIndexed { i, (p, a) ->
-                    p.uid to dao.insertarPagina(a.entidad(loteId = loteId, verificacionId = null, clase = ClasePagina.SEROLOGIA, numero = i + 1, creado = ahora, vence = vence))
-                }.toMap()
-                val correcciones = mutableListOf<CorreccionEntidad>()
-                for (f in b.filas) {
-                    if (f.descartada || f.idTexto.isBlank()) continue
-                    val paginaId = paginaIdPorUid[f.paginaUid] ?: continue
-                    val (entrada, corr) = construirEntrada(f, loteId, paginaId, b.tipo, ahora, vence)
-                    val entradaId = dao.insertarEntrada(entrada)
-                    dao.insertarResultados(f.resultados.map { it.entidad(entradaId, vence) })
-                    correcciones += corr.map { it.copy(entradaId = entradaId) }
+                val lotes = guardadas.groupBy { (p, _) -> tipoDe(p.uid) }.map { (tipo, grupo) ->
+                    val loteId = dao.insertarLote(LoteEntidad(tipo = tipo, procedencia = b.procedencia, creado = ahora, vence = vence))
+                    val paginaIdPorUid = grupo.mapIndexed { i, (p, a) ->
+                        p.uid to dao.insertarPagina(a.entidad(loteId = loteId, verificacionId = null, clase = ClasePagina.SEROLOGIA, numero = i + 1, creado = ahora, vence = vence))
+                    }.toMap()
+                    val correcciones = mutableListOf<CorreccionEntidad>()
+                    for (f in conservadas) {
+                        val paginaId = paginaIdPorUid[f.paginaUid] ?: continue
+                        val (entrada, corr) = construirEntrada(f, loteId, paginaId, tipo, ahora, vence)
+                        val entradaId = dao.insertarEntrada(entrada)
+                        dao.insertarResultados(f.resultados.map { it.entidad(entradaId, vence) })
+                        correcciones += corr.map { it.copy(entradaId = entradaId) }
+                    }
+                    bd.correcciones().insertar(correcciones)
+                    loteId
                 }
-                bd.correcciones().insertar(correcciones)
-                loteId
+                lotes.first()
             }
         } catch (e: Exception) {
             escritos.forEach { runCatching { archivos.eliminar(it) } }
             throw e
         }
+    }
+
+    /** Todas las hojas del borrador ya estaban guardadas (misma unidad, tipo y resultados). */
+    class SinNovedadesException : Exception()
+
+    /** Dos lecturas de la misma unidad no se contradicen (mismos resultados donde coinciden). */
+    private fun compatibles(a: Map<String, CategoriaResultado>, b: Map<String, CategoriaResultado>): Boolean =
+        a.keys.intersect(b.keys).all { a[it] == b[it] }
+
+    /**
+     * Quita las lecturas repetidas de una misma unidad (mismo tipo y resultados compatibles),
+     * conservando la más completa. Las que se contradicen se mantienen para que se vean.
+     */
+    private fun sinRepetidos(registros: List<RegistroEncontrado>): List<RegistroEncontrado> {
+        val conservados = mutableListOf<RegistroEncontrado>()
+        for (r in registros.sortedWith(compareByDescending<RegistroEncontrado> { it.resultados.size }.thenByDescending { it.entrada.id })) {
+            val res = r.resultados.associate { it.clave to it.categoria }
+            if (conservados.none { k -> k.entrada.tipo == r.entrada.tipo && compatibles(res, k.resultados.associate { it.clave to it.categoria }) }) {
+                conservados += r
+            }
+        }
+        return conservados.sortedBy { it.entrada.id }
     }
 
     private class ArchivosPagina(val original: String, val procesado: String, val clave: ByteArray, val p: PaginaCapturada) {
@@ -225,7 +275,7 @@ class Repositorio(
             else -> OrigenDato.CORREGIDO
         }
         val cajaId = lectura?.candidatos?.firstOrNull { it.normalizado == canon || it.sugerido == canon }?.caja
-        val exactos = canon?.let { bd.serologia().entradasPorId(it, ahora).map { e -> completar(e, ahora) } }.orEmpty()
+        val exactos = sinRepetidos(canon?.let { bd.serologia().entradasPorId(it, ahora).map { e -> completar(e, ahora) } }.orEmpty())
         val similares = canon?.let { bd.serologia().entradasSimilares(Confusiones.clave(it), it, ahora).map { e -> completar(e, ahora) } }.orEmpty()
         val barras = lectura?.idCodigoBarras
         val solicitud = SolicitudCorroboracion(
@@ -274,7 +324,7 @@ class Repositorio(
         val v = bd.verificaciones().verificacion(verificacionId, ahora) ?: return@withContext null
         val informe = json.decodeFromString(InformeCorroboracion.serializer(), v.informeJson)
         val ids = bd.verificaciones().entradasVinculadas(verificacionId)
-        val registros = bd.serologia().entradas(ids, ahora).map { completar(it, ahora) }
+        val registros = sinRepetidos(bd.serologia().entradas(ids, ahora).map { completar(it, ahora) })
         DatosComparacion(v, informe, bd.serologia().paginaDeVerificacion(verificacionId, ahora), registros, bd.correcciones().deVerificacion(verificacionId, ahora))
     }
 

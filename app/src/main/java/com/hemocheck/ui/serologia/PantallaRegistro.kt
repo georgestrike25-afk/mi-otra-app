@@ -24,6 +24,7 @@ import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import com.hemocheck.captura.ModoCaptura
 import com.hemocheck.core.analisis.AnalizadorHoja
+import com.hemocheck.core.analisis.DetectorTipoHoja
 import com.hemocheck.imagen.LectorPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import kotlinx.coroutines.launch
 import com.hemocheck.datos.ArchivosCifrados
+import com.hemocheck.datos.Repositorio
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.ui.comun.relevante
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.imagen.decodificarReducido
@@ -76,6 +79,7 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
     var confirmarSalida by remember { mutableStateOf(false) }
     var guardando by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
+    var yaGuardadas by remember { mutableStateOf(false) }
     val alcance = rememberCoroutineScope()
     val context = LocalContext.current
     var progresoPdf by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -106,7 +110,7 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
                     val p = contenedor.procesador.procesar(jpeg, 0, ModoCaptura.HOJA, corregirBordes = false)
                     val tipo = contenedor.borradores.serologia.value.tipo
                     withContext(Dispatchers.Default) {
-                        contenedor.borradores.agregarPagina(p, p.ocr?.let { AnalizadorHoja(formatos).analizar(it, tipo) })
+                        contenedor.borradores.agregarPagina(p, p.ocr?.let { AnalizadorHoja(formatos).analizar(it, DetectorTipoHoja.detectar(it) ?: tipo) })
                     }
                 }
             } catch (e: LectorPdf.PdfProtegidoException) {
@@ -131,8 +135,13 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
         alcance.launch(Dispatchers.Main) {
             try {
                 val actual = contenedor.borradores.serologia.value
+                yaGuardadas = false
                 val id = contenedor.repositorio.guardarSerologia(actual)
-                contenedor.borradores.loteGuardado(id, actual.tipo)
+                contenedor.borradores.loteGuardado(id, actual.analisis[actual.paginas.firstOrNull()?.uid]?.tipo ?: actual.tipo)
+            } catch (e: Repositorio.SinNovedadesException) {
+                // La misma hoja ya estaba guardada: no se duplica
+                contenedor.borradores.descartarSerologia()
+                yaGuardadas = true
             } catch (e: ArchivosCifrados.SinEspacioException) {
                 error = R.string.error_sin_espacio
             } catch (e: Exception) {
@@ -196,7 +205,10 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
 
             Text(stringResource(R.string.registro_paginas, b.paginas.size), style = MaterialTheme.typography.titleMedium)
             b.paginas.forEachIndexed { i, p ->
-                TarjetaPagina(i + 1, p, filas = b.filas.count { it.paginaUid == p.uid }, onQuitar = { contenedor.borradores.quitarPagina(p.uid) })
+                TarjetaPagina(
+                    i + 1, p, filas = b.filas.count { it.paginaUid == p.uid }, tipo = b.analisis[p.uid]?.tipo ?: b.tipo,
+                    onQuitar = { contenedor.borradores.quitarPagina(p.uid) },
+                )
             }
 
             Button(onClick = onFotografiar, modifier = Modifier.fillMaxWidth().testTag("boton_fotografiar_hoja")) {
@@ -224,6 +236,7 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
                 }
             }
             avisoPdf?.let { Aviso(it, Gravedad.ADVERTENCIA) }
+            if (yaGuardadas) Aviso(stringResource(R.string.registro_ya_guardadas), Gravedad.CORRECTO)
             error?.let { Aviso(stringResource(it), Gravedad.PELIGRO) }
             Button(
                 onClick = { guardar() },
@@ -259,7 +272,7 @@ fun PantallaRegistro(contenedor: Contenedor, onFotografiar: () -> Unit, onRevisa
 }
 
 @Composable
-private fun TarjetaPagina(numero: Int, p: PaginaCapturada, filas: Int, onQuitar: () -> Unit) {
+private fun TarjetaPagina(numero: Int, p: PaginaCapturada, filas: Int, tipo: TipoRegistro, onQuitar: () -> Unit) {
     val miniatura by produceState<Bitmap?>(null, p.uid) {
         value = withContext(Dispatchers.Default) { decodificarReducido(p.jpegProcesada, 320) }
     }
@@ -272,8 +285,13 @@ private fun TarjetaPagina(numero: Int, p: PaginaCapturada, filas: Int, onQuitar:
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.pagina_n, numero), fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.registro_filas_detectadas, filas), style = MaterialTheme.typography.bodySmall)
-                if (p.avisos.isNotEmpty() || p.errorOcr) {
-                    Text(stringResource(R.string.registro_pagina_con_avisos, p.avisos.size + if (p.errorOcr) 1 else 0), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    stringResource(if (tipo == TipoRegistro.MOLECULAR) R.string.registro_pagina_nat else R.string.registro_pagina_sc),
+                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                )
+                val relevantes = p.avisos.count { it.relevante() } + if (p.errorOcr) 1 else 0
+                if (relevantes > 0) {
+                    Text(stringResource(R.string.registro_pagina_con_avisos, relevantes), style = MaterialTheme.typography.bodySmall)
                 }
             }
             IconButton(onClick = onQuitar) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.registro_quitar_pagina)) }

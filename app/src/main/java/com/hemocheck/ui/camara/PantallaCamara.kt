@@ -95,9 +95,11 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.ui.comun.relevante
 import com.hemocheck.captura.ModoCaptura
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.core.analisis.AnalizadorHoja
+import com.hemocheck.core.analisis.DetectorTipoHoja
 import com.hemocheck.core.etiqueta.AnalizadorEtiqueta
 import com.hemocheck.core.imagen.AnalizadorCalidad
 import com.hemocheck.core.imagen.AvisoCalidad
@@ -337,7 +339,8 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
         alcance.launch(Dispatchers.Main) {
             withContext(Dispatchers.Default) {
                 if (modo == ModoCaptura.HOJA) {
-                    val hoja = p.ocr?.let { AnalizadorHoja(formatos).analizar(it, borrador.tipo) }
+                    // El tipo (NAT o SC) se reconoce por los encabezados de la hoja; si no es claro, el elegido
+                    val hoja = p.ocr?.let { AnalizadorHoja(formatos).analizar(it, DetectorTipoHoja.detectar(it) ?: borrador.tipo) }
                     contenedor.borradores.agregarPagina(p, hoja)
                 } else {
                     val lectura = AnalizadorEtiqueta(formatos).analizar(p.ocr ?: PaginaOcr(p.anchoProcesada, p.altoProcesada, emptyList()), p.codigosBarras)
@@ -430,7 +433,7 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp).testTag("zoom_camara"),
                 )
             }
-            avisosVivo.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
+            avisosVivo.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 if (modo == ModoCaptura.HOJA) {
                     Text(stringResource(R.string.camara_paginas, borrador.paginas.size), color = Color.White)
@@ -506,9 +509,7 @@ private fun RevisionFoto(
                     Text(stringResource(R.string.revision_usar_sin_recortar))
                 }
             }
-            pagina.avisos.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
-            if (pagina.avisos.isEmpty() && !pagina.errorOcr) Aviso(stringResource(R.string.revision_sin_avisos), Gravedad.CORRECTO)
-            Aviso(stringResource(R.string.revision_original_conservado), Gravedad.INFO)
+            pagina.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onRepetir, modifier = Modifier.weight(1f).testTag("boton_repetir")) { Text(stringResource(R.string.repetir)) }

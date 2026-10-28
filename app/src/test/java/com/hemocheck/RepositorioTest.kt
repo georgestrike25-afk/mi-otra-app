@@ -88,9 +88,23 @@ class RepositorioTest {
     }
 
     @Test
-    fun `duplicados y similares se informan`() = runBlocking {
+    fun `la misma hoja guardada dos veces no se duplica`() = runBlocking {
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }))
+        val repetida = runCatching { e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) })) }
+        assertTrue(repetida.exceptionOrNull() is Repositorio.SinNovedadesException)
+        // Dos fotos de la misma hoja en el mismo borrador: una sola fila
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.MOLECULAR, { fila(it, id, resultados = nat) }, { fila(it, id, resultados = nat) }))
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
+        assertEquals(2, d.registros.size)
+        assertEquals(1, d.registros.count { it.entrada.tipo == TipoRegistro.CONVENCIONAL })
+        assertFalse(EstadoCorroboracion.DUPLICADO_AMBIGUO in d.informe.estados)
+    }
+
+    @Test
+    fun `duplicados contradictorios y similares se informan`() = runBlocking {
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }))
+        val distinta = conv.map { if (it.clave == "HCV") resultado("HCV", "R", C.REACTIVO) else it }
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = distinta) }))
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, "X99992600O123", resultados = conv) }))
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
         assertTrue(EstadoCorroboracion.DUPLICADO_AMBIGUO in d.informe.estados)

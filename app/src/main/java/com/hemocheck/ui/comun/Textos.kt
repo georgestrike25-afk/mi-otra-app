@@ -113,6 +113,15 @@ fun textoAvisoPagina(a: AvisoPagina): Int = when (a) {
     AvisoPagina.CONFIANZA_BAJA_GENERAL -> R.string.pagina_confianza_baja
 }
 
+/**
+ * Solo se muestran las advertencias que cambian algo: que no se encontró texto. Las de calidad
+ * (luz, nitidez, reflejos, bordes) no se muestran porque la lectura igual funciona.
+ */
+fun AvisoCalidad.relevante(): Boolean = this == AvisoCalidad.SIN_TEXTO
+
+/** Advertencias de la hoja que vale la pena mostrar (sin texto o sin números de unidad). */
+fun AvisoPagina.relevante(): Boolean = this == AvisoPagina.SIN_TEXTO || this == AvisoPagina.SIN_IDENTIFICADORES
+
 fun textoCalidad(a: AvisoCalidad): Int = when (a) {
     AvisoCalidad.POCA_LUZ -> R.string.calidad_poca_luz
     AvisoCalidad.SOBREEXPUESTA -> R.string.calidad_sobreexpuesta

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.ui.comun.relevante
 import com.hemocheck.captura.FilaEditable
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.core.analisis.AnalizadorHoja
@@ -47,6 +48,7 @@ import com.hemocheck.core.analisis.HojaAnalizada
 import com.hemocheck.core.identificador.IdUnidad
 import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.datos.ArchivosCifrados
+import com.hemocheck.datos.Repositorio
 import com.hemocheck.datos.db.OrigenDato
 import com.hemocheck.imagen.decodificarReducido
 import com.hemocheck.imagen.recortarZona
@@ -140,7 +142,11 @@ fun PantallaRevisionSerologia(contenedor: Contenedor, onGuardado: () -> Unit, on
                     alcance.launch(Dispatchers.Main) {
                         try {
                             val id = contenedor.repositorio.guardarSerologia(b)
-                            contenedor.borradores.loteGuardado(id, b.tipo)
+                            contenedor.borradores.loteGuardado(id, b.analisis[b.paginas.firstOrNull()?.uid]?.tipo ?: b.tipo)
+                            onGuardado()
+                        } catch (e: Repositorio.SinNovedadesException) {
+                            // La misma hoja ya estaba guardada: no se duplica
+                            contenedor.borradores.descartarSerologia()
                             onGuardado()
                         } catch (e: ArchivosCifrados.SinEspacioException) {
                             error = R.string.error_sin_espacio
@@ -164,8 +170,8 @@ private fun EncabezadoPagina(numero: Int, p: PaginaCapturada, hoja: HojaAnalizad
             Text(stringResource(R.string.pagina_n, numero), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             imagen?.let { ImagenAmpliable(it, stringResource(R.string.pagina_n, numero), alturaMax = 220) }
             if (p.errorOcr) Aviso(stringResource(R.string.revision_error_ocr), Gravedad.PELIGRO)
-            p.avisos.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
-            hoja?.avisos?.forEach { Aviso(stringResource(textoAvisoPagina(it)), Gravedad.ADVERTENCIA) }
+            p.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
+            hoja?.avisos?.filter { it.relevante() }?.forEach { Aviso(stringResource(textoAvisoPagina(it)), Gravedad.ADVERTENCIA) }
             hoja?.validacionPagina?.takeIf { it.isNotEmpty() }?.let {
                 Text(stringResource(R.string.revision_validacion_documentada, it.joinToString(" · ")), style = MaterialTheme.typography.bodySmall)
             }
