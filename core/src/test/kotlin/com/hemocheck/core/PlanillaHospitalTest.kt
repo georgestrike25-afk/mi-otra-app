@@ -2,6 +2,7 @@ package com.hemocheck.core
 
 import com.hemocheck.core.analisis.AnalizadorHoja
 import com.hemocheck.core.analisis.Disposicion
+import com.hemocheck.core.analisis.Problema
 import com.hemocheck.core.identificador.ConfiguracionIdentificadores
 import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.core.resultado.TipoRegistro
@@ -97,5 +98,25 @@ class PlanillaHospitalTest {
         assertTrue(a.resultados.toString(), a.resultados.all { it.categoria == CategoriaResultado.NO_REACTIVO })
         val b = hoja.entradas.single { it.ocurrencia.normalizado == "900149" }
         assertEquals(CategoriaResultado.REACTIVO, b.resultados.single { it.clave == "HBSAG" }.categoria)
+    }
+
+    @Test
+    fun `numero leido fuera de orden se corrige por sus vecinos`() {
+        // La columna va en orden; el OCR confundió un 9 con un 8 (900190 leído como 900180)
+        val ids = listOf("900185", "900187", "900189", "900180", "900192", "900195")
+        val hoja = analizador.analizar(planilla(convencional, ids.map { Triple(it, "Apto", emptyMap<Int, String>()) }), TipoRegistro.CONVENCIONAL)
+        val leidos = hoja.entradas.map { it.ocurrencia.normalizado }
+        assertFalse("900180" in leidos)
+        val corregida = hoja.entradas.single { it.ocurrencia.normalizado == "900190" }
+        assertTrue(Problema.ID_CORREGIDO_POR_ORDEN in corregida.problemas)
+    }
+
+    @Test
+    fun `numero fuera de orden sin correccion unica se marca`() {
+        val ids = listOf("900185", "900187", "900189", "900023", "900199", "900201")
+        val hoja = analizador.analizar(planilla(convencional, ids.map { Triple(it, "Apto", emptyMap<Int, String>()) }), TipoRegistro.CONVENCIONAL)
+        val dudosa = hoja.entradas.single { it.ocurrencia.normalizado == "900023" }
+        assertTrue(Problema.ID_FUERA_DE_ORDEN in dudosa.problemas)
+        assertEquals(1, hoja.entradas.count { Problema.ID_FUERA_DE_ORDEN in it.problemas })
     }
 }

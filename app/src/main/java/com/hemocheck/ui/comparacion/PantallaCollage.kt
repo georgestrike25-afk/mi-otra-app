@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -95,7 +96,7 @@ fun PantallaCollage(
         cargado = true
         revisada = d?.verificacion?.revisadaEn
         if (d != null) {
-            val paginas = listOfNotNull(d.paginaEtiqueta) + d.registros.mapNotNull { it.pagina }
+            val paginas = listOfNotNull(d.paginaEtiqueta) + (d.registros + d.parecidos).mapNotNull { it.pagina }
             for (p in paginas.distinctBy { it.id }) {
                 contenedor.repositorio.imagen(p, procesada = true, ladoMax = 3200)?.let { imagenes[p.id] = it }
             }
@@ -114,7 +115,7 @@ fun PantallaCollage(
                 }
                 return@Column
             }
-            val lecturas = remember(d) { d.registros.associate { it.entrada.id to leer(it) } }
+            val lecturas = remember(d) { (d.registros + d.parecidos).associate { it.entrada.id to leer(it) } }
             val conv = d.registros.filter { it.entrada.tipo == TipoRegistro.CONVENCIONAL }
             val mol = d.registros.filter { it.entrada.tipo == TipoRegistro.MOLECULAR }
 
@@ -131,8 +132,14 @@ fun PantallaCollage(
 
             // Las tres imágenes, grandes y pegadas
             Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.background(Color.Black)) {
-                ImagenesDeTipo(conv, stringResource(R.string.tipo_convencional), stringResource(R.string.insignia_convencional), d, imagenes, lecturas)
-                ImagenesDeTipo(mol, stringResource(R.string.tipo_molecular), stringResource(R.string.insignia_molecular), d, imagenes, lecturas)
+                ImagenesDeTipo(
+                    conv, stringResource(R.string.tipo_convencional), stringResource(R.string.insignia_convencional), d, imagenes, lecturas,
+                    parecidos = d.parecidos.filter { it.entrada.tipo == TipoRegistro.CONVENCIONAL },
+                )
+                ImagenesDeTipo(
+                    mol, stringResource(R.string.tipo_molecular), stringResource(R.string.insignia_molecular), d, imagenes, lecturas,
+                    parecidos = d.parecidos.filter { it.entrada.tipo == TipoRegistro.MOLECULAR },
+                )
                 ImagenEtiqueta(d, imagenes)
             }
 
@@ -177,6 +184,19 @@ private fun leer(r: RegistroEncontrado): Lectura {
     val estado = r.entrada.cajaId?.let { c -> ocr?.let { FilaCompacta.estado(it, c) } }
     val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.map { it.nombre }.distinct()
     return Lectura(estado, ocr, reactivos)
+}
+
+/** Aviso amarillo de lectura dudosa, a todo el ancho, encima de la foto. */
+@Composable
+private fun FranjaAviso(texto: String) {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xFFFFC928)).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Color(0xFF10151D))
+        Spacer(Modifier.width(8.dp))
+        Text(texto, color = Color(0xFF10151D), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    }
 }
 
 /** Franja finita con la marca «SC»/«NAT» encima de la foto, para no tapar ningún número. */
@@ -251,9 +271,12 @@ private fun ImagenesDeTipo(
     d: DatosComparacion,
     imagenes: Map<Long, Bitmap>,
     lecturas: Map<Long, Lectura>,
+    parecidos: List<RegistroEncontrado> = emptyList(),
+    esParecido: Boolean = false,
 ) {
     if (registros.isEmpty()) {
         Faltante(stringResource(R.string.collage_falta_tipo, tipo, formatearId(d.informe.idEtiqueta ?: "")))
+        if (parecidos.isNotEmpty()) ImagenesDeTipo(parecidos, tipo, insignia, d, imagenes, lecturas, esParecido = true)
         return
     }
     registros.forEach { r ->
@@ -261,6 +284,13 @@ private fun ImagenesDeTipo(
         val bmp = pagina?.let { imagenes[it.id] }
         val lectura = lecturas[r.entrada.id]
         val e = r.entrada
+        // Avisos de lectura dudosa del número (relevantes: el número podría ser otro)
+        when {
+            esParecido -> FranjaAviso(stringResource(R.string.collage_parecido, formatearId(e.idNormalizado)))
+            "ID_FUERA_DE_ORDEN" in e.problemas -> FranjaAviso(stringResource(R.string.collage_fuera_de_orden))
+            "ID_CORREGIDO_POR_ORDEN" in e.problemas ->
+                FranjaAviso(stringResource(R.string.collage_corregido_por_orden, e.idOcr ?: "", formatearId(e.idNormalizado)))
+        }
         when {
             pagina == null -> Faltante(stringResource(R.string.comparacion_pagina_no_disponible))
             bmp == null -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

@@ -285,10 +285,19 @@ private fun TarjetaPagina(numero: Int, p: PaginaCapturada, filas: Int, tipo: Tip
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.pagina_n, numero), fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.registro_filas_detectadas, filas), style = MaterialTheme.typography.bodySmall)
-                Text(
-                    stringResource(if (tipo == TipoRegistro.MOLECULAR) R.string.registro_pagina_nat else R.string.registro_pagina_sc),
-                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
-                )
+                val reconocida = remember(p.uid) { p.ocr?.let { DetectorTipoHoja.detectar(it) } != null }
+                if (reconocida) {
+                    Text(
+                        stringResource(if (tipo == TipoRegistro.MOLECULAR) R.string.registro_pagina_nat else R.string.registro_pagina_sc),
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    // Relevante: sin encabezados no se sabe si es NAT o SC; se usa el tipo elegido arriba
+                    Text(
+                        stringResource(R.string.registro_pagina_sin_encabezados, stringResource(textoTipo(tipo))),
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 val relevantes = p.avisos.count { it.relevante() } + if (p.errorOcr) 1 else 0
                 if (relevantes > 0) {
                     Text(stringResource(R.string.registro_pagina_con_avisos, relevantes), style = MaterialTheme.typography.bodySmall)

@@ -52,6 +52,11 @@ data class DatosComparacion(
     val paginaEtiqueta: PaginaEntidad?,
     val registros: List<RegistroEncontrado>,
     val correcciones: List<CorreccionEntidad>,
+    /**
+     * Si falta la hoja de un tipo (NAT o SC), filas de ese tipo con un número que difiere en un
+     * solo dígito: probable error de lectura de una foto borrosa, para comparar con la imagen.
+     */
+    val parecidos: List<RegistroEncontrado> = emptyList(),
 )
 
 data class DetalleEntrada(
@@ -97,11 +102,14 @@ class Repositorio(
             val canon = canonizar(f.idTexto)
             val tipo = tipoDe(f.paginaUid)
             val res = f.resultados.associate { it.clave to it.categoria }
+            // Otra foto de la misma hoja: misma unidad y tipo, mismas columnas y mismos resultados.
+            // Dos filas de la MISMA foto con el mismo número no se juntan (es un error de lectura).
             val repetidaEnLote = conservadas.any { o ->
-                canonizar(o.idTexto) == canon && tipoDe(o.paginaUid) == tipo && compatibles(res, o.resultados.associate { it.clave to it.categoria })
+                o.paginaUid != f.paginaUid && canonizar(o.idTexto) == canon && tipoDe(o.paginaUid) == tipo &&
+                    mismaLectura(res, o.resultados.associate { it.clave to it.categoria })
             }
             val yaGuardada = !repetidaEnLote && dao.entradasPorId(canon, ahora).any { e ->
-                e.tipo == tipo && compatibles(res, dao.resultados(e.id, ahora).associate { it.clave to it.categoria })
+                e.tipo == tipo && mismaLectura(res, dao.resultados(e.id, ahora).associate { it.clave to it.categoria })
             }
             if (!repetidaEnLote && !yaGuardada) conservadas += f
         }
@@ -140,9 +148,17 @@ class Repositorio(
     /** Todas las hojas del borrador ya estaban guardadas (misma unidad, tipo y resultados). */
     class SinNovedadesException : Exception()
 
-    /** Dos lecturas de la misma unidad no se contradicen (mismos resultados donde coinciden). */
-    private fun compatibles(a: Map<String, CategoriaResultado>, b: Map<String, CategoriaResultado>): Boolean =
-        a.keys.intersect(b.keys).all { a[it] == b[it] }
+    /**
+     * Dos lecturas son de la misma fila de la misma clase de hoja: tienen casi las mismas
+     * columnas (determinaciones) y no se contradicen. Sin columnas leídas, nunca se consideran
+     * iguales (podría ser otra hoja, p. ej. una NAT fotografiada sin encabezados).
+     */
+    private fun mismaLectura(a: Map<String, CategoriaResultado>, b: Map<String, CategoriaResultado>): Boolean {
+        if (a.isEmpty() || b.isEmpty()) return false
+        val comunes = a.keys.intersect(b.keys)
+        val similitud = comunes.size.toDouble() / (a.keys + b.keys).size
+        return similitud >= 0.6 && comunes.all { a[it] == b[it] }
+    }
 
     /**
      * Quita las lecturas repetidas de una misma unidad (mismo tipo y resultados compatibles),
@@ -152,7 +168,11 @@ class Repositorio(
         val conservados = mutableListOf<RegistroEncontrado>()
         for (r in registros.sortedWith(compareByDescending<RegistroEncontrado> { it.resultados.size }.thenByDescending { it.entrada.id })) {
             val res = r.resultados.associate { it.clave to it.categoria }
-            if (conservados.none { k -> k.entrada.tipo == r.entrada.tipo && compatibles(res, k.resultados.associate { it.clave to it.categoria }) }) {
+            if (conservados.none { k ->
+                    k.entrada.tipo == r.entrada.tipo && k.entrada.paginaId != r.entrada.paginaId &&
+                        mismaLectura(res, k.resultados.associate { it.clave to it.categoria })
+                }
+            ) {
                 conservados += r
             }
         }
@@ -325,7 +345,15 @@ class Repositorio(
         val informe = json.decodeFromString(InformeCorroboracion.serializer(), v.informeJson)
         val ids = bd.verificaciones().entradasVinculadas(verificacionId)
         val registros = sinRepetidos(bd.serologia().entradas(ids, ahora).map { completar(it, ahora) })
-        DatosComparacion(v, informe, bd.serologia().paginaDeVerificacion(verificacionId, ahora), registros, bd.correcciones().deVerificacion(verificacionId, ahora))
+        val faltan = com.hemocheck.core.resultado.TipoRegistro.entries.filter { t -> registros.none { it.entrada.tipo == t } }
+        val parecidos = v.idEtiqueta?.takeIf { faltan.isNotEmpty() }?.let { id ->
+            id.indices.flatMap { i -> bd.serologia().entradasPorPatron(id.replaceRange(i, i + 1, "_"), id, ahora) }
+                .distinctBy { it.id }.filter { it.tipo in faltan }.take(4).map { completar(it, ahora) }
+        }.orEmpty()
+        DatosComparacion(
+            v, informe, bd.serologia().paginaDeVerificacion(verificacionId, ahora), registros,
+            bd.correcciones().deVerificacion(verificacionId, ahora), parecidos,
+        )
     }
 
     suspend fun marcarRevisada(verificacionId: Long) = withContext(Dispatchers.IO) {

@@ -35,6 +35,10 @@ interface SerologiaDao {
     @Query("SELECT * FROM entradas WHERE claveConfusion = :clave AND idNormalizado != :id AND vence > :ahora")
     fun entradasSimilares(clave: String, id: String, ahora: Long): List<EntradaEntidad>
 
+    /** Números que coinciden con un patrón LIKE (p. ej. «2956_2»: difieren en un solo dígito). */
+    @Query("SELECT * FROM entradas WHERE idNormalizado LIKE :patron AND idNormalizado != :id AND vence > :ahora")
+    fun entradasPorPatron(patron: String, id: String, ahora: Long): List<EntradaEntidad>
+
     @Query("SELECT * FROM entradas WHERE id = :id AND vence > :ahora")
     fun entrada(id: Long, ahora: Long): EntradaEntidad?
 

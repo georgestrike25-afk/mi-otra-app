@@ -2,6 +2,7 @@ package com.hemocheck
 
 import android.app.Application
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.hemocheck.captura.EstadoBorradorSerologia
 import com.hemocheck.core.corroboracion.EstadoCorroboracion
 import com.hemocheck.core.corroboracion.EstadoEntrada
 import com.hemocheck.core.corroboracion.TipoAviso
@@ -93,7 +94,11 @@ class RepositorioTest {
         val repetida = runCatching { e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) })) }
         assertTrue(repetida.exceptionOrNull() is Repositorio.SinNovedadesException)
         // Dos fotos de la misma hoja en el mismo borrador: una sola fila
-        e.repositorio.guardarSerologia(borrador(TipoRegistro.MOLECULAR, { fila(it, id, resultados = nat) }, { fila(it, id, resultados = nat) }))
+        val p1 = paginaFicticia()
+        val p2 = paginaFicticia()
+        e.repositorio.guardarSerologia(
+            EstadoBorradorSerologia(TipoRegistro.MOLECULAR, "Prueba", listOf(p1, p2), filas = listOf(fila(p1, id, resultados = nat), fila(p2, id, resultados = nat))),
+        )
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
         assertEquals(2, d.registros.size)
         assertEquals(1, d.registros.count { it.entrada.tipo == TipoRegistro.CONVENCIONAL })
@@ -175,5 +180,21 @@ class RepositorioTest {
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(paginaFicticia(), null, null))!!
         assertTrue(EstadoCorroboracion.IDENTIFICADOR_ILEGIBLE in d.informe.estados)
         assertTrue(d.registros.isEmpty())
+    }
+
+    @Test
+    fun `dos filas de la misma foto con el mismo numero no se juntan`() = runBlocking {
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }, { fila(it, id, resultados = conv) }))
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
+        assertEquals(2, d.registros.size)
+    }
+
+    @Test
+    fun `si falta la hoja NAT se muestran numeros parecidos`() = runBlocking {
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }))
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.MOLECULAR, { fila(it, "X999926000183", resultados = nat) }))
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
+        assertTrue(d.registros.none { it.entrada.tipo == TipoRegistro.MOLECULAR })
+        assertEquals(listOf("X999926000183"), d.parecidos.map { it.entrada.idNormalizado })
     }
 }

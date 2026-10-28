@@ -33,6 +33,10 @@ enum class Problema(val bloqueante: Boolean) {
     SIN_RESULTADOS(true),
     VALOR_NO_INTERPRETADO(false),
     RESULTADOS_SUELTOS_EN_PAGINA(false),
+    /** El número no sigue el orden de la columna (p. ej. 295680 entre 295689 y 295692): posible error de lectura. */
+    ID_FUERA_DE_ORDEN(true),
+    /** El número se corrigió por el orden de la columna (un solo dígito confundido, p. ej. 8 por 9). */
+    ID_CORREGIDO_POR_ORDEN(false),
 }
 
 enum class Disposicion { TABLA, FORMULARIO, DESCONOCIDA }
@@ -166,9 +170,9 @@ class AnalizadorHoja(
             .map { aPropuesto(it, etiquetaDe[it]) }
         if (sueltos.isNotEmpty()) avisos += AvisoPagina.RESULTADOS_SIN_ASOCIAR
 
-        val entradasFinales = if (sueltos.isNotEmpty()) {
-            entradas.map { it.copy(problemas = it.problemas + Problema.RESULTADOS_SUELTOS_EN_PAGINA) }
-        } else entradas
+        val entradasFinales = revisarOrden(
+            if (sueltos.isNotEmpty()) entradas.map { it.copy(problemas = it.problemas + Problema.RESULTADOS_SUELTOS_EN_PAGINA) } else entradas,
+        )
 
         val disposicion = when {
             encabezados.isNotEmpty() && entradasFinales.any { e -> e.cajaEncabezados != null } -> Disposicion.TABLA
@@ -176,6 +180,56 @@ class AnalizadorHoja(
             else -> Disposicion.DESCONOCIDA
         }
         return HojaAnalizada(tipo, disposicion, entradasFinales, avisos, fechaPagina, validacionPagina, sueltos)
+    }
+
+    /**
+     * En las planillas los números de unidad van en orden creciente de arriba hacia abajo. Si un
+     * número no queda entre sus vecinos (p. ej. 295680 entre 295689 y 295692) es casi seguro un
+     * error de lectura: si cambiando un solo dígito hay un único número que encaja entre los
+     * vecinos (295690), se corrige; si no, se marca para revisarlo en la imagen.
+     */
+    internal fun revisarOrden(entradas: List<EntradaPropuesta>): List<EntradaPropuesta> {
+        val numericas = entradas.filter { e -> e.ocurrencia.caja != null && e.ocurrencia.normalizado.all { it.isDigit() } }
+            .sortedBy { it.ocurrencia.caja!!.centroY }
+        if (numericas.size < 4) return entradas
+        val valores = numericas.map { it.ocurrencia.normalizado.toLongOrNull() ?: return entradas }
+        val crecientes = valores.zipWithNext().count { (a, b) -> b > a }
+        if (crecientes < (valores.size - 1) * 0.75) return entradas
+
+        // Los números que forman la secuencia creciente más larga se consideran bien leídos;
+        // los demás son los sospechosos, y se comparan con sus vecinos bien leídos
+        val enSecuencia = secuenciaCrecienteMasLarga(valores)
+        val cambios = mutableMapOf<EntradaPropuesta, EntradaPropuesta>()
+        for (i in numericas.indices) {
+            if (i in enSecuencia) continue
+            val anterior = enSecuencia.filter { it < i }.maxOrNull()?.let { valores[it] }
+            val siguiente = enSecuencia.filter { it > i }.minOrNull()?.let { valores[it] }
+            val e = numericas[i]
+            val texto = e.ocurrencia.normalizado
+            val candidatos = if (anterior != null && siguiente != null && siguiente - anterior in 2..1000) {
+                (anterior + 1 until siguiente).map { it.toString().padStart(texto.length, '0') }
+                    .filter { c -> c.length == texto.length && c.indices.count { c[it] != texto[it] } == 1 }
+            } else emptyList()
+            cambios[e] = if (candidatos.size == 1) {
+                e.copy(ocurrencia = e.ocurrencia.copy(normalizado = candidatos.single()), problemas = e.problemas + Problema.ID_CORREGIDO_POR_ORDEN)
+            } else {
+                e.copy(problemas = e.problemas + Problema.ID_FUERA_DE_ORDEN)
+            }
+        }
+        return if (cambios.isEmpty()) entradas else entradas.map { cambios[it] ?: it }
+    }
+
+    /** Índices de la secuencia estrictamente creciente más larga. */
+    private fun secuenciaCrecienteMasLarga(v: List<Long>): Set<Int> {
+        val largo = IntArray(v.size) { 1 }
+        val previo = IntArray(v.size) { -1 }
+        for (i in v.indices) for (j in 0 until i) {
+            if (v[j] < v[i] && largo[j] + 1 > largo[i]) { largo[i] = largo[j] + 1; previo[i] = j }
+        }
+        var k = largo.indices.maxByOrNull { largo[it] } ?: return emptySet()
+        val r = mutableSetOf<Int>()
+        while (k >= 0) { r += k; k = previo[k] }
+        return r
     }
 
     /**

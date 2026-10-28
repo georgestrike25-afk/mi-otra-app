@@ -128,6 +128,7 @@
     <string name="registro_ya_guardadas">Estas hojas ya estaban guardadas: no se duplicaron.</string>
     <string name="registro_pagina_nat">Reconocida como NAT (molecular)</string>
     <string name="registro_pagina_sc">Reconocida como SC (convencional)</string>
+    <string name="registro_pagina_sin_encabezados">No se ven los encabezados: se guardará como %1$s (el tipo elegido arriba). Si es otra hoja, sacá la foto con los encabezados.</string>
     <string name="registro_subir_pdf">Subir planilla en PDF</string>
     <string name="pdf_abriendo">Abriendo el PDF…</string>
     <string name="pdf_leyendo">Leyendo página %1$d de %2$d…</string>
@@ -289,6 +290,9 @@
     <string name="collage_falta_tipo">%1$s: no se encontró el número %2$s en las hojas guardadas</string>
     <string name="collage_sin_estado">No se encontró la columna «Estado» de esta fila: mirá la fila completa.</string>
     <string name="collage_discrepancia">Se leyó «REACTIVO» en %1$s pero la planilla dice «Apto»: probable error de lectura, verificá la fila completa.</string>
+    <string name="collage_parecido">¿Es esta? En esta hoja se leyó %1$s (un dígito distinto). Puede ser un error de lectura: compará con la imagen.</string>
+    <string name="collage_fuera_de_orden">Número dudoso: no sigue el orden de la planilla. Compará con la imagen.</string>
+    <string name="collage_corregido_por_orden">Se leyó «%1$s» y se corrigió a %2$s por el orden de la planilla. Compará con la imagen.</string>
     <string name="collage_deslizar">Deslizá ⇆</string>
     <string name="insignia_convencional">SC</string>
     <string name="insignia_molecular">NAT</string>
