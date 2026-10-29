@@ -116,14 +116,14 @@ fun PantallaCollage(
                 return@Column
             }
             val lecturas = remember(d) { (d.registros + d.parecidos).associate { it.entrada.id to leer(it) } }
-            val conv = d.registros.filter { it.entrada.tipo == TipoRegistro.CONVENCIONAL }
-            val mol = d.registros.filter { it.entrada.tipo == TipoRegistro.MOLECULAR }
+            val conv = remember(d) { unaPorEstado(d.registros.filter { it.entrada.tipo == TipoRegistro.CONVENCIONAL }, lecturas) }
+            val mol = remember(d) { unaPorEstado(d.registros.filter { it.entrada.tipo == TipoRegistro.MOLECULAR }, lecturas) }
 
             Column(Modifier.padding(horizontal = 12.dp)) {
                 Text(stringResource(R.string.comparacion_id_etiqueta), style = MaterialTheme.typography.labelLarge)
                 TextoId(d.informe.idEtiqueta, grande = true)
             }
-            if (d.registros.any { lecturas[it.entrada.id]?.alerta == true }) {
+            if ((conv + mol).any { lecturas[it.entrada.id]?.alerta == true }) {
                 Aviso(
                     stringResource(R.string.collage_alerta_texto), Gravedad.PELIGRO,
                     modifier = Modifier.padding(horizontal = 12.dp), titulo = stringResource(R.string.collage_alerta_titulo),
@@ -165,6 +165,21 @@ fun PantallaCollage(
             }
         }
     }
+}
+
+/**
+ * Varias fotos de la misma hoja dan varias filas de la misma unidad: se muestra una sola por
+ * tipo (la que tiene el «Estado» leído y más resultados). Solo se muestra más de una si la
+ * planilla dice un Estado distinto en cada una (p. ej. «Apto» en una y «No Apto» en otra).
+ */
+private fun unaPorEstado(registros: List<RegistroEncontrado>, lecturas: Map<Long, Lectura>): List<RegistroEncontrado> {
+    if (registros.size < 2) return registros
+    val porEstado = registros.groupBy { lecturas[it.entrada.id]?.estado?.noApto }
+    val conEstado = porEstado.filterKeys { it != null }
+    val grupos = if (conEstado.isNotEmpty()) conEstado.values else porEstado.values
+    return grupos.map { g ->
+        g.maxWith(compareBy<RegistroEncontrado>({ it.resultados.size }, { it.entrada.id }))
+    }.sortedBy { it.entrada.id }
 }
 
 /** Lo que se lee de la planilla para una fila: su estado y los reactivos leídos por OCR. */
