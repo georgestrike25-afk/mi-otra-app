@@ -9,6 +9,9 @@ import com.hemocheck.captura.FilaEditable
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.captura.ResultadoEditable
 import com.hemocheck.core.analisis.AnalizadorHoja
+import com.hemocheck.core.ocr.PaginaOcr
+import com.hemocheck.core.analisis.FilaCompacta
+import com.hemocheck.core.analisis.CalidadLectura
 import com.hemocheck.core.corroboracion.ConcordanciaBarras
 import com.hemocheck.core.corroboracion.EstadoEntrada
 import com.hemocheck.core.corroboracion.InformeCorroboracion
@@ -96,22 +99,41 @@ class Repositorio(
         val dao = bd.serologia()
         fun tipoDe(paginaUid: String) = b.analisis[paginaUid]?.tipo ?: b.tipo
 
+        fun mismoDia(a: Long, b: Long) =
+            java.time.Instant.ofEpochMilli(a).atZone(zona()).toLocalDate() == java.time.Instant.ofEpochMilli(b).atZone(zona()).toLocalDate()
+        fun calidadNueva(f: FilaEditable): Int {
+            val ocr = b.paginas.firstOrNull { it.uid == f.paginaUid }?.ocr
+            val conEstado = f.cajaId?.let { c -> ocr?.let { FilaCompacta.estado(it, c) } } != null
+            return CalidadLectura.puntaje(f.resultados.size, conEstado, f.problemas.any { it in CalidadLectura.NUMERO_DUDOSO })
+        }
+        fun calidadGuardada(e: EntradaEntidad): Int {
+            val ocr = dao.pagina(e.paginaId, ahora)?.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() }
+            val conEstado = e.cajaId?.let { c -> ocr?.let { FilaCompacta.estado(it, c) } } != null
+            return CalidadLectura.puntaje(dao.resultados(e.id, ahora).size, conEstado, CalidadLectura.NUMERO_DUDOSO.any { it.name in e.problemas })
+        }
+
+        // La misma unidad y tipo en varias fotos del borrador: se queda la foto que mejor se leyó.
+        // Dos filas de la MISMA foto con el mismo número se conservan (es un error de lectura).
         val conservadas = mutableListOf<FilaEditable>()
-        for (f in b.filas) {
-            if (f.descartada || f.idTexto.isBlank()) continue
-            val canon = canonizar(f.idTexto)
-            val tipo = tipoDe(f.paginaUid)
-            val res = f.resultados.associate { it.clave to it.categoria }
-            // Otra foto de la misma hoja: misma unidad y tipo, mismas columnas y mismos resultados.
-            // Dos filas de la MISMA foto con el mismo número no se juntan (es un error de lectura).
-            val repetidaEnLote = conservadas.any { o ->
-                o.paginaUid != f.paginaUid && canonizar(o.idTexto) == canon && tipoDe(o.paginaUid) == tipo &&
-                    mismaLectura(res, o.resultados.associate { it.clave to it.categoria })
+        val candidatas = b.filas.filter { !it.descartada && it.idTexto.isNotBlank() }
+        for ((clave, grupo) in candidatas.groupBy { canonizar(it.idTexto) to tipoDe(it.paginaUid) }) {
+            val (canon, tipo) = clave
+            val porPagina = grupo.groupBy { it.paginaUid }
+            val elegidas = porPagina.values.maxBy { filas -> filas.maxOf { calidadNueva(it) } }
+            val mejorNueva = elegidas.maxOf { calidadNueva(it) }
+            val guardadas = dao.entradasPorId(canon, ahora).filter { it.tipo == tipo }
+            val deHoy = guardadas.filter { mismoDia(it.creado, ahora) }
+            val guardar = if (deHoy.isNotEmpty()) {
+                // Ya se fotografió hoy: solo se guarda si esta foto se ve mejor
+                mejorNueva > deHoy.maxOf { calidadGuardada(it) }
+            } else {
+                // De otro día: no se repite si es la misma lectura (mismas columnas y resultados)
+                elegidas.none { f ->
+                    val res = f.resultados.associate { it.clave to it.categoria }
+                    guardadas.any { e -> mismaLectura(res, dao.resultados(e.id, ahora).associate { it.clave to it.categoria }) }
+                }
             }
-            val yaGuardada = !repetidaEnLote && dao.entradasPorId(canon, ahora).any { e ->
-                e.tipo == tipo && mismaLectura(res, dao.resultados(e.id, ahora).associate { it.clave to it.categoria })
-            }
-            if (!repetidaEnLote && !yaGuardada) conservadas += f
+            if (guardar) conservadas += elegidas
         }
         // Páginas: las que aportan filas nuevas, o las que no tenían filas leídas (quedan como evidencia)
         val paginas = b.paginas.filter { p -> conservadas.any { it.paginaUid == p.uid } || b.filas.none { it.paginaUid == p.uid } }

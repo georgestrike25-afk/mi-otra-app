@@ -109,6 +109,7 @@ class RepositorioTest {
     fun `duplicados contradictorios y similares se informan`() = runBlocking {
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }))
         val distinta = conv.map { if (it.clave == "HCV") resultado("HCV", "R", C.REACTIVO) else it }
+        e.ahora += 24 * 3600 * 1000L // otro día
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = distinta) }))
         e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, "X99992600O123", resultados = conv) }))
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
@@ -196,5 +197,19 @@ class RepositorioTest {
         val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
         assertTrue(d.registros.none { it.entrada.tipo == TipoRegistro.MOLECULAR })
         assertEquals(listOf("X999926000183"), d.parecidos.map { it.entrada.idNormalizado })
+    }
+
+    @Test
+    fun `el mismo dia solo se guarda otra foto si se ve mejor`() = runBlocking {
+        val incompleta = conv.take(4)
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = incompleta) }))
+        // Igual de buena: no se guarda
+        val igual = runCatching { e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = incompleta) })) }
+        assertTrue(igual.exceptionOrNull() is Repositorio.SinNovedadesException)
+        // Mejor (más resultados leídos): se guarda y el collage muestra esa
+        e.repositorio.guardarSerologia(borrador(TipoRegistro.CONVENCIONAL, { fila(it, id, resultados = conv) }))
+        assertEquals(2, e.repositorio.buscarExacto(id).size)
+        val d = e.repositorio.comparacion(e.repositorio.crearVerificacion(null, null, id))!!
+        assertTrue(d.registros.any { it.resultados.size == conv.size })
     }
 }

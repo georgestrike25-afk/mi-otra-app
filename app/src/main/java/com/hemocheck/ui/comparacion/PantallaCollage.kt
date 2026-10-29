@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hemocheck.Contenedor
 import com.hemocheck.R
+import com.hemocheck.core.analisis.CalidadLectura
 import com.hemocheck.core.analisis.EstadoPlanilla
 import com.hemocheck.core.analisis.FilaCompacta
 import com.hemocheck.core.ocr.PaginaOcr
@@ -169,7 +170,7 @@ fun PantallaCollage(
 
 /**
  * Varias fotos de la misma hoja dan varias filas de la misma unidad: se muestra una sola por
- * tipo (la que tiene el «Estado» leído y más resultados). Solo se muestra más de una si la
+ * tipo (la que mejor se leyó: Estado encontrado, más resultados, número sin dudas). Solo se muestra más de una si la
  * planilla dice un Estado distinto en cada una (p. ej. «Apto» en una y «No Apto» en otra).
  */
 private fun unaPorEstado(registros: List<RegistroEncontrado>, lecturas: Map<Long, Lectura>): List<RegistroEncontrado> {
@@ -178,7 +179,12 @@ private fun unaPorEstado(registros: List<RegistroEncontrado>, lecturas: Map<Long
     val conEstado = porEstado.filterKeys { it != null }
     val grupos = if (conEstado.isNotEmpty()) conEstado.values else porEstado.values
     return grupos.map { g ->
-        g.maxWith(compareBy<RegistroEncontrado>({ it.resultados.size }, { it.entrada.id }))
+        g.maxWith(compareBy<RegistroEncontrado>({ r ->
+            CalidadLectura.puntaje(
+                r.resultados.size, lecturas[r.entrada.id]?.estado != null,
+                CalidadLectura.NUMERO_DUDOSO.any { it.name in r.entrada.problemas },
+            )
+        }, { it.entrada.id }))
     }.sortedBy { it.entrada.id }
 }
 
