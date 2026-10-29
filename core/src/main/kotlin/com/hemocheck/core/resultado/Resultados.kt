@@ -20,6 +20,8 @@ object ClasificadorResultado {
     private val noReactivo = listOf(
         // «N0» con cero: confusión habitual del OCR
         "n[o0]\\s*-?\\s*reactiv[oa]s?", "n\\s*/\\s*r", "n\\.\\s*r\\.?", "nr",
+        // «NO» mal leído al estar pegado a la línea del cuadro: «INO», «|NO», «NC», «N», «MO»...
+        "[il1!|\\[]{0,2}[nmh][o0cqduv]?\\s*[.,:;|-]?\\s*reactiv[oa]s?",
         "no\\s+detectad[oa]s?", "no\\s+detectable", "no\\s+se\\s+detecta", "no\\s+detectado",
         "negativ[oa]s?", "neg\\.?", "\\(\\s*-\\s*\\)",
     )

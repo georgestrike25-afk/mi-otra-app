@@ -219,6 +219,9 @@ class AnalizadorHoja(
         return if (cambios.isEmpty()) entradas else entradas.map { cambios[it] ?: it }
     }
 
+    /** «NO» suelto, también mal leído por estar pegado a la línea del cuadro («INO», «NC», «N», «MO»...). */
+    private val NEGACION = Regex("[il1!|\\[(]{0,2}[nmh][o0cqduv]?[|.)\\]]{0,2}")
+
     /** Índices de la secuencia estrictamente creciente más larga. */
     private fun secuenciaCrecienteMasLarga(v: List<Long>): Set<Int> {
         val largo = IntArray(v.size) { 1 }
@@ -239,7 +242,7 @@ class AnalizadorHoja(
      */
     private fun unirNegacionesSeparadas(frases: MutableList<Res>, lineas: List<TextoLinea>) {
         val negaciones = lineas.flatMap { it.palabrasFuera(emptyList()) }
-            .filter { it.caja != null && TextoLinea.normalizarConservandoLongitud(it.texto).trim().trimEnd('.') in setOf("no", "n0") }
+            .filter { it.caja != null && NEGACION.matches(TextoLinea.normalizarConservandoLongitud(it.texto).trim()) }
         if (negaciones.isEmpty()) return
         for (i in frases.indices) {
             val r = frases[i]

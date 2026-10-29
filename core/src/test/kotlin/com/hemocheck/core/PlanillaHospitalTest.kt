@@ -101,6 +101,26 @@ class PlanillaHospitalTest {
     }
 
     @Test
+    fun `NO pegado a la linea del cuadro se lee como NO REACTIVO`() {
+        val p = pagina(2400, 1000) {
+            linea("Referencia", 60, 200); linea("HIV NAT", 560, 200); linea("HBV NAT", 900, 200); linea("HCV NAT", 1240, 200)
+            linea("900150", 60, 300)
+            linea("INO REACTIVO", 560, 300); linea("NC REACTIVO", 900, 300); linea("|NO REACTIVO", 1240, 300)
+            linea("900151", 60, 360)
+            linea("N", 560, 360); linea("REACTIVO", 560 + 2 * 18, 360); linea("MO REACTIVO", 900, 360); linea("NO REACTIVO", 1240, 360)
+            linea("900152", 60, 420)
+            linea("NO REACTIVO", 560, 420); linea("REACTIVO", 900, 420); linea("NO REACTIVO", 1240, 420) // reactivo real
+        }
+        val hoja = analizador.analizar(p, TipoRegistro.MOLECULAR)
+        for (id in listOf("900150", "900151")) {
+            val e = hoja.entradas.single { it.ocurrencia.normalizado == id }
+            assertTrue("$id: ${e.resultados}", e.resultados.isNotEmpty() && e.resultados.all { it.categoria == CategoriaResultado.NO_REACTIVO })
+        }
+        val real = hoja.entradas.single { it.ocurrencia.normalizado == "900152" }
+        assertTrue(real.resultados.toString(), real.resultados.any { it.categoria == CategoriaResultado.REACTIVO })
+    }
+
+    @Test
     fun `numero leido fuera de orden se corrige por sus vecinos`() {
         // La columna va en orden; el OCR confundió un 9 con un 8 (900190 leído como 900180)
         val ids = listOf("900185", "900187", "900189", "900180", "900192", "900195")
