@@ -79,7 +79,7 @@
     <string name="permiso_camara_ajustes">Abrir ajustes de la app</string>
     <string name="camara_titulo_hoja">Hoja de serología</string>
     <string name="camara_titulo_etiqueta">Etiqueta del hemocomponente</string>
-    <string name="camara_indicacion_hoja">Encuadrá la hoja completa dentro del marco. Tocá la pantalla para enfocar. No hace falta un fondo especial.</string>
+    <string name="camara_indicacion_hoja">Encuadrá la hoja completa. Tocá la pantalla para enfocar. No hace falta un fondo especial.</string>
     <string name="camara_indicacion_etiqueta">Encuadrá la bolsa con sus etiquetas, sin reflejos sobre el número de unidad ni el código de barras. Usá el zoom si el número se ve chico.</string>
     <string name="camara_iniciando">Iniciando cámara…</string>
     <string name="camara_lista">Vista previa activa</string>
