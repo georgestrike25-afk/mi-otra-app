@@ -295,6 +295,13 @@
     <string name="collage_fuera_de_orden">Número dudoso: no sigue el orden de la planilla. Compará con la imagen.</string>
     <string name="collage_corregido_por_orden">Se leyó «%1$s» y se corrigió a %2$s por el orden de la planilla. Compará con la imagen.</string>
     <string name="collage_deslizar">Deslizá ⇆</string>
+    <string name="insignia_etiqueta">ETIQUETA</string>
+    <string name="etiqueta_componente">Componente: %1$s</string>
+    <string name="etiqueta_posible_q">El número termina en 0 y es una etiqueta de plaquetas: la «Q» final pudo leerse como un cero. Si es así, tocá la opción sin el 0.</string>
+    <string name="componente_globulos">Glóbulos rojos</string>
+    <string name="componente_plasma">Plasma</string>
+    <string name="componente_plaquetas">Plaquetas</string>
+    <string name="componente_plaquetas_aferesis">Plaquetas de donante único</string>
     <string name="insignia_convencional">SC</string>
     <string name="insignia_molecular">NAT</string>
     <string name="collage_titulo">Corroboración visual</string>

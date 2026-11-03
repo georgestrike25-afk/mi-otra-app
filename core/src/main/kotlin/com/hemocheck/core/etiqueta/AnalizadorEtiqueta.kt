@@ -19,6 +19,8 @@ enum class AvisoEtiqueta {
     BARRAS_DISCORDANTE,
     BARRAS_CONCORDANTE,
     SOLO_BARRAS,
+    /** El número termina en 0 y la etiqueta es de plaquetas: la «Q» final pudo leerse como un cero. */
+    POSIBLE_Q_COMO_CERO,
 }
 
 data class LecturaEtiqueta(
@@ -48,7 +50,7 @@ class AnalizadorEtiqueta(
     fun analizar(pagina: PaginaOcr, codigosBarras: List<String> = emptyList()): LecturaEtiqueta {
         val avisos = mutableSetOf<AvisoEtiqueta>()
         if (pagina.vacia) avisos += AvisoEtiqueta.SIN_TEXTO
-        val candidatos = TextoLinea.de(pagina)
+        val candidatosLeidos = TextoLinea.de(pagina)
             .flatMap { IdUnidad.buscarEnLinea(it, formatos) }
             .sortedWith(
                 compareByDescending<OcurrenciaId> { it.controlValido == true }
@@ -58,6 +60,8 @@ class AnalizadorEtiqueta(
                     .thenByDescending { it.caja?.alto ?: 0 }
                     .thenByDescending { it.confianza ?: 0f }
             )
+        // La letra del componente (Q, G, P, U) a veces se lee como un dígito pegado al número
+        val candidatos = corregirLetraLeidaComoDigito(candidatosLeidos, codigosBarras)
             // Un mismo identificador puede aparecer varias veces en la etiqueta
             .distinctBy { it.sugerido ?: it.normalizado }
 
@@ -100,9 +104,40 @@ class AnalizadorEtiqueta(
             }
         }
         if (candidatos.isEmpty() && barras == null) avisos += AvisoEtiqueta.SIN_IDENTIFICADOR
+        // Sin otra lectura que confirme el número: en una etiqueta de plaquetas, un número que termina
+        // en 0 pudo ser «…Q». Se ofrece la alternativa sin el 0 para elegirla con un toque.
+        val textoEtiqueta = pagina.lineas.joinToString(" ") { it.texto }.lowercase()
+        val sospechoso = candidatos.firstOrNull { it.normalizado == propuesto && it.estricto && it.componente == null && it.normalizado.endsWith("0") }
+        val candidatosFinal = if (sospechoso != null && "plaqueta" in textoEtiqueta && barras != propuesto) {
+            avisos += AvisoEtiqueta.POSIBLE_Q_COMO_CERO
+            val alternativa = sospechoso.normalizado.dropLast(1)
+            candidatos + sospechoso.copy(normalizado = alternativa, estricto = false, sugerido = alternativa, componente = "Q")
+        } else candidatos
         val componente = candidatos.firstOrNull { it.normalizado == propuesto && it.componente != null }?.componente
             ?: codigosBarras.firstNotNullOfOrNull { Regex("^\\*?\\d+([A-Z]{1,2})\\*?$").find(it.trim().uppercase())?.groupValues?.get(1) }
-        return LecturaEtiqueta(candidatos, propuesto, barras, avisos, componente)
+        return LecturaEtiqueta(candidatosFinal, propuesto, barras, avisos, componente)
+    }
+
+    /**
+     * Si otra lectura de la misma etiqueta (el código de barras Code 39 «*295216Q*» u otro texto con
+     * letra) da el número sin el último dígito, ese dígito era en realidad la letra del componente
+     * mal leída («295216Q» → «2952160»). Solo se corrige un número que sigue a «Unidad:», «Ext:»…
+     * y cuya versión corta está confirmada por otra lectura.
+     */
+    private fun corregirLetraLeidaComoDigito(candidatos: List<OcurrenciaId>, codigosBarras: List<String>): List<OcurrenciaId> {
+        val referencias = mutableMapOf<String, String>() // número → letra del componente
+        candidatos.filter { it.estricto && it.componente != null && it.normalizado.all(Char::isDigit) }
+            .forEach { referencias[it.normalizado] = it.componente!! }
+        val conLetra = Regex("^\\*?(\\d{6,12})([A-Z]{1,2})\\*?$")
+        codigosBarras.forEach { c -> conLetra.find(c.trim().uppercase())?.let { referencias[it.groupValues[1]] = it.groupValues[2] } }
+        if (referencias.isEmpty()) return candidatos
+        return candidatos.map { c ->
+            val corto = c.normalizado.dropLast(1)
+            val letra = referencias[corto]
+            if (letra != null && c.estricto && c.anclado && c.componente == null && c.normalizado.all(Char::isDigit)) {
+                c.copy(normalizado = corto, componente = letra)
+            } else c
+        }
     }
 
     companion object {

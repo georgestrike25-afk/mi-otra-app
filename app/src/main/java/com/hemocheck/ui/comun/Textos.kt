@@ -26,6 +26,7 @@ import com.hemocheck.core.corroboracion.EstadoCorroboracion
 import com.hemocheck.core.corroboracion.EstadoEntrada
 import com.hemocheck.core.corroboracion.TipoAviso
 import com.hemocheck.core.etiqueta.AvisoEtiqueta
+import com.hemocheck.core.etiqueta.ComponenteHemo
 import com.hemocheck.core.imagen.AvisoCalidad
 import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.core.resultado.TipoRegistro
@@ -145,6 +146,15 @@ fun textoAvisoEtiqueta(a: AvisoEtiqueta): Int = when (a) {
     AvisoEtiqueta.BARRAS_DISCORDANTE -> R.string.etiqueta_barras_discordante
     AvisoEtiqueta.BARRAS_CONCORDANTE -> R.string.etiqueta_barras_concordante
     AvisoEtiqueta.SOLO_BARRAS -> R.string.etiqueta_solo_barras
+    AvisoEtiqueta.POSIBLE_Q_COMO_CERO -> R.string.etiqueta_posible_q
+}
+
+/** Nombre del hemocomponente según la letra al final del número de la etiqueta. */
+fun textoComponente(c: ComponenteHemo): Int = when (c) {
+    ComponenteHemo.GLOBULOS_ROJOS -> R.string.componente_globulos
+    ComponenteHemo.PLASMA -> R.string.componente_plasma
+    ComponenteHemo.PLAQUETAS -> R.string.componente_plaquetas
+    ComponenteHemo.PLAQUETAS_AFERESIS -> R.string.componente_plaquetas_aferesis
 }
 
 /** Texto completo de un aviso de corroboración. */

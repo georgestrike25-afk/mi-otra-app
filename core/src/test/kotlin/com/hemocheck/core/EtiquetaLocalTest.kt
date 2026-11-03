@@ -9,6 +9,7 @@ import com.hemocheck.core.corroboracion.SolicitudCorroboracion
 import com.hemocheck.core.corroboracion.TipoAviso
 import com.hemocheck.core.etiqueta.AnalizadorEtiqueta
 import com.hemocheck.core.etiqueta.AvisoEtiqueta
+import com.hemocheck.core.etiqueta.ComponenteHemo
 import com.hemocheck.core.identificador.ConfiguracionIdentificadores
 import com.hemocheck.core.identificador.IdUnidad
 import com.hemocheck.core.imagen.DetectorHoja
@@ -68,6 +69,58 @@ class EtiquetaLocalTest {
         assertEquals("900123", l.idCodigoBarras)
         assertEquals("900123", l.propuesto)
         assertTrue(AvisoEtiqueta.SOLO_BARRAS in l.avisos)
+    }
+
+    /** Etiqueta de plaquetas ficticia en la que el OCR leyó la «Q» final como un cero. */
+    private fun plaquetasConQLeidaComoCero() = pagina(1100, 2000) {
+        linea("Hospital Ficticio - F.Ext:6/10/2026", 200, 650)
+        linea("Plaquetas Concentrado", 200, 710)
+        linea("Unidad:9001230", 200, 760, altoLetra = 44)
+        linea("*9001230*", 300, 860)
+        linea("A POS Ext:9001230 - Hc:90012", 220, 1000)
+        linea("F. Venc: 17/11/2026", 220, 1180)
+    }
+
+    @Test
+    fun `la Q de plaquetas leida como cero se corrige con el codigo de barras`() {
+        val l = etiqueta.analizar(plaquetasConQLeidaComoCero(), listOf("*900123Q*"))
+        assertEquals("900123", l.propuesto)
+        assertEquals("Q", l.componente)
+        assertFalse(AvisoEtiqueta.VARIOS_IDENTIFICADORES in l.avisos)
+        assertTrue(AvisoEtiqueta.BARRAS_CONCORDANTE in l.avisos)
+    }
+
+    @Test
+    fun `sin otra lectura en plaquetas ofrece la alternativa sin el cero`() {
+        val l = etiqueta.analizar(plaquetasConQLeidaComoCero())
+        assertEquals("9001230", l.propuesto) // no se cambia solo: no hay prueba
+        assertTrue(AvisoEtiqueta.POSIBLE_Q_COMO_CERO in l.avisos)
+        assertTrue(l.candidatos.any { (it.sugerido ?: it.normalizado) == "900123" })
+    }
+
+    @Test
+    fun `un numero que termina en cero en globulos rojos no se toca`() {
+        val p = pagina(1100, 2000) {
+            linea("Globulos Rojos Sedimentados", 200, 710)
+            linea("Unidad:900120G", 200, 760, altoLetra = 44)
+            linea("*900120G*", 300, 860)
+        }
+        val l = etiqueta.analizar(p, listOf("*900120G*"))
+        assertEquals("900120", l.propuesto)
+        assertFalse(AvisoEtiqueta.POSIBLE_Q_COMO_CERO in l.avisos)
+    }
+
+    @Test
+    fun `la letra del componente indica el hemocomponente`() {
+        assertEquals(ComponenteHemo.GLOBULOS_ROJOS, ComponenteHemo.desdeLetra("G"))
+        assertEquals(ComponenteHemo.PLASMA, ComponenteHemo.desdeLetra("P"))
+        assertEquals(ComponenteHemo.PLASMA, ComponenteHemo.desdeLetra("PF"))
+        assertEquals(ComponenteHemo.PLAQUETAS, ComponenteHemo.desdeLetra("Q"))
+        assertEquals(ComponenteHemo.PLAQUETAS_AFERESIS, ComponenteHemo.desdeLetra("U"))
+        assertEquals(ComponenteHemo.PLAQUETAS, ComponenteHemo.enPagina(bolsa("Q"), "900123"))
+        // El mismo número con otro componente es válido: es otra bolsa de la misma donación
+        assertEquals("900123", etiqueta.analizar(bolsa("Q")).propuesto)
+        assertEquals("900123", etiqueta.analizar(bolsa("U")).propuesto)
     }
 
     @Test

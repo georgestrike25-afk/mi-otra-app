@@ -29,12 +29,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hemocheck.Contenedor
 import com.hemocheck.R
 import com.hemocheck.ui.comun.relevante
 import com.hemocheck.core.etiqueta.AvisoEtiqueta
+import com.hemocheck.core.etiqueta.ComponenteHemo
+import com.hemocheck.ui.comun.textoComponente
 import com.hemocheck.core.identificador.IdUnidad
 import com.hemocheck.datos.ArchivosCifrados
 import com.hemocheck.imagen.decodificarReducido
@@ -114,6 +117,9 @@ fun PantallaRevisionEtiqueta(contenedor: Contenedor, onRepetir: () -> Unit, onVe
             lectura.avisos.filter { it in AVISOS_ETIQUETA_RELEVANTES }.forEach {
                 Aviso(stringResource(textoAvisoEtiqueta(it)), Gravedad.ADVERTENCIA)
             }
+            ComponenteHemo.desdeLetra(lectura.componente)?.let {
+                Text(stringResource(R.string.etiqueta_componente, stringResource(textoComponente(it))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            }
             lectura.idCodigoBarras?.let { Text(stringResource(R.string.etiqueta_codigo_barras, formatearId(it)), style = MaterialTheme.typography.bodySmall) }
 
             if (lectura.candidatos.size > 1 || lectura.candidatos.any { it.sugerido != null }) {
@@ -184,5 +190,5 @@ fun PantallaRevisionEtiqueta(contenedor: Contenedor, onRepetir: () -> Unit, onVe
 
 private val AVISOS_ETIQUETA_RELEVANTES = setOf(
     AvisoEtiqueta.SIN_TEXTO, AvisoEtiqueta.SIN_IDENTIFICADOR, AvisoEtiqueta.VARIOS_IDENTIFICADORES,
-    AvisoEtiqueta.CONTROL_INVALIDO, AvisoEtiqueta.BARRAS_DISCORDANTE,
+    AvisoEtiqueta.CONTROL_INVALIDO, AvisoEtiqueta.BARRAS_DISCORDANTE, AvisoEtiqueta.POSIBLE_Q_COMO_CERO,
 )

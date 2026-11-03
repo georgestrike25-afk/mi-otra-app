@@ -53,6 +53,7 @@ import com.hemocheck.R
 import com.hemocheck.core.analisis.CalidadLectura
 import com.hemocheck.core.analisis.EstadoPlanilla
 import com.hemocheck.core.analisis.FilaCompacta
+import com.hemocheck.core.etiqueta.ComponenteHemo
 import com.hemocheck.core.ocr.PaginaOcr
 import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.core.resultado.TipoRegistro
@@ -68,6 +69,7 @@ import com.hemocheck.ui.comun.TextoId
 import com.hemocheck.ui.comun.VisorImagen
 import com.hemocheck.ui.comun.formatearFecha
 import com.hemocheck.ui.comun.formatearId
+import com.hemocheck.ui.comun.textoComponente
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -355,7 +357,18 @@ private fun ImagenEtiqueta(d: DatosComparacion, imagenes: Map<Long, Bitmap>) {
                     ?: d.informe.idEtiqueta?.let { id -> ocr?.let { FilaCompacta.buscarEnEtiqueta(it, id) } }
                 c?.let { recortarConMarca(bmp, FilaCompacta.zonaEtiqueta(ocr, it), null, pagina.anchoProcesada, alerta = false) }
             }
-            ImagenAncha(recorte ?: bmp, stringResource(R.string.comparacion_foto_etiqueta))
+            // Qué hemocomponente es (letra G, P, Q o U al final del número); el mismo número puede repetirse
+            // en bolsas distintas de la misma donación
+            val componente = remember(bmp) {
+                val ocr = pagina.ocrJson?.let { runCatching { PaginaOcr.desdeJson(it) }.getOrNull() }
+                val id = d.informe.idEtiqueta
+                if (ocr != null && id != null) ComponenteHemo.enPagina(ocr, id) else null
+            }
+            val nombre = componente?.let { stringResource(textoComponente(it)) }
+            ImagenAncha(
+                recorte ?: bmp, stringResource(R.string.comparacion_foto_etiqueta),
+                stringResource(R.string.insignia_etiqueta) + (nombre?.let { " · $it" } ?: ""),
+            )
         }
     }
 }
