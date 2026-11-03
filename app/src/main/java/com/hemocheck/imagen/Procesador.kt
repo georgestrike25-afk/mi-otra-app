@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import com.hemocheck.captura.ModoCaptura
 import com.hemocheck.captura.PaginaCapturada
+import com.hemocheck.core.analisis.CompletarNegaciones
 import com.hemocheck.core.imagen.AnalizadorCalidad
 import com.hemocheck.core.imagen.AvisoCalidad
 import com.hemocheck.core.imagen.DetectorHoja
@@ -74,6 +75,14 @@ class Procesador(private val ocr: MotorOcr) {
             }
         } catch (e: Exception) {
             errorOcr = true
+        }
+        // Si el OCR no entregó el «NO» de un «NO REACTIVO» pero la imagen tiene texto ahí, se completa
+        if (pagina != null && modo == ModoCaptura.HOJA) {
+            try {
+                pagina = CompletarNegaciones.completar(pagina, aGris(paraOcr, LADO_MAX_PROCESADA))
+            } catch (e: Throwable) {
+                // Sin la comprobación extra se usa la lectura del OCR tal cual
+            }
         }
         if (pagina != null) {
             if (pagina.vacia) avisos += AvisoCalidad.SIN_TEXTO
