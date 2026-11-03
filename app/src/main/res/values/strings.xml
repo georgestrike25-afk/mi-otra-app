@@ -103,6 +103,7 @@
     <string name="revision_original_conservado">La foto original se conserva sin cambios (cifrada) como evidencia.</string>
     <string name="revision_usar_sin_recortar">Usar sin recortar (si la hoja se ve deformada)</string>
     <string name="camara_zoom">Zoom</string>
+    <string name="camara_zoom_valor">Zoom %1$.1fx</string>
     <string name="confirmar_otra_pagina">Usar y tomar otra</string>
     <string name="confirmar_terminar">Usar foto y terminar</string>
     <string name="confirmar_continuar">Usar foto</string>

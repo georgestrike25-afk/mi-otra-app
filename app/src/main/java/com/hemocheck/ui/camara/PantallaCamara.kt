@@ -27,7 +27,6 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -75,12 +74,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -192,7 +187,9 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
     var errorCamara by remember { mutableStateOf<Int?>(null) }
     var flash by remember { mutableStateOf(ModoFlash.APAGADO) }
     var tieneFlash by remember { mutableStateOf(false) }
-    var zoom by remember { mutableFloatStateOf(0f) }
+    // Zoom en «x» sobre la cámara principal (1,0x): no baja al gran angular ni sube al teleobjetivo
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var topeZoom by remember { mutableFloatStateOf(1f) }
     val ref = remember { RefCamara() }
     val ejecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
@@ -242,6 +239,11 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                 p.unbindAll()
                 val cam = p.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, captura, analisis)
                 ref.camara = cam
+                // Siempre arranca en la cámara principal (1,0x) y el zoom se limita para que el teléfono
+                // no cambie de lente (por debajo de 1x usa el gran angular; desde ~2-3x, el teleobjetivo)
+                cam.cameraControl.setZoomRatio(1f)
+                topeZoom = minOf(ZOOM_MAXIMO_LENTE_PRINCIPAL, cam.cameraInfo.zoomState.value?.maxZoomRatio ?: 1f).coerceAtLeast(1f)
+                zoom = 1f
                 tieneFlash = cam.cameraInfo.hasFlashUnit()
                 errorCamara = null
             } catch (e: Exception) {
@@ -371,7 +373,6 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
             },
             modifier = Modifier.fillMaxSize().testTag("vista_previa_camara"),
         )
-        GuiaEncuadre(modo)
 
         // Barra superior
         Row(
@@ -423,13 +424,15 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
             Text(stringResource(indicacion), color = Color.White, style = MaterialTheme.typography.bodySmall)
             // Zoom de la cámara (útil para acercar el número de la etiqueta sin perder enfoque)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.camara_zoom), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.camara_zoom_valor, zoom), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 Slider(
                     value = zoom,
                     onValueChange = { v ->
                         zoom = v
-                        ref.camara?.cameraControl?.setLinearZoom(v)
+                        ref.camara?.cameraControl?.setZoomRatio(v)
                     },
+                    valueRange = 1f..topeZoom.coerceAtLeast(1.01f),
+                    enabled = topeZoom > 1.01f,
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp).testTag("zoom_camara"),
                 )
             }
@@ -525,26 +528,6 @@ private fun RevisionFoto(
     }
 }
 
-/** Marco de encuadre: hoja A4 vertical o etiqueta horizontal. */
-@Composable
-private fun GuiaEncuadre(modo: ModoCaptura) {
-    Canvas(Modifier.fillMaxSize()) {
-        val proporcion = if (modo == ModoCaptura.HOJA) 1.414f else 1.3f
-        val ancho = size.width * 0.86f
-        val alto = (ancho * proporcion).coerceAtMost(size.height * 0.72f)
-        val anchoFinal = alto / proporcion
-        val izq = (size.width - anchoFinal) / 2
-        val arriba = (size.height - alto) / 2
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.85f),
-            topLeft = Offset(izq, arriba),
-            size = Size(anchoFinal, alto),
-            cornerRadius = CornerRadius(18f, 18f),
-            style = Stroke(width = 4f),
-        )
-    }
-}
-
 private fun decodificarVista(jpeg: ByteArray): Bitmap {
     val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, o)
@@ -576,3 +559,6 @@ private class AnalizadorVivo(private val alAvisar: (Set<AvisoCalidad>) -> Unit) 
         }
     }
 }
+
+/** Hasta aquí el zoom sigue en la lente principal en casi todos los teléfonos (2x es recorte del sensor principal). */
+private const val ZOOM_MAXIMO_LENTE_PRINCIPAL = 2f
