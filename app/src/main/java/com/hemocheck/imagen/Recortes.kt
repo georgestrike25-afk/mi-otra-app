@@ -84,6 +84,42 @@ private fun marcarEnRojo(salida: Bitmap, marcas: List<Caja>, escala: Float, dx: 
 }
 
 /**
+ * Imagen girada para dejar horizontales las filas de una hoja fotografiada torcida, junto con la forma
+ * de llevar a ella las cajas de la imagen original (de ancho de referencia [anchoReferencia]).
+ */
+class Enderezada(val bmp: Bitmap, private val matriz: android.graphics.Matrix, private val escala: Float) {
+    fun caja(c: Caja): Caja {
+        val p = floatArrayOf(
+            c.izq * escala, c.arriba * escala, c.der * escala, c.arriba * escala,
+            c.der * escala, c.abajo * escala, c.izq * escala, c.abajo * escala,
+        )
+        matriz.mapPoints(p)
+        val xs = listOf(p[0], p[2], p[4], p[6])
+        val ys = listOf(p[1], p[3], p[5], p[7])
+        return Caja(xs.min().toInt(), ys.min().toInt(), xs.max().toInt(), ys.max().toInt())
+    }
+}
+
+/** Gira la imagen [grados] (positivo = horario). Null si no hay memoria suficiente. Todo en memoria. */
+fun enderezar(bmp: Bitmap, grados: Float, anchoReferencia: Int): Enderezada? {
+    val m = android.graphics.Matrix().apply { postRotate(grados, bmp.width / 2f, bmp.height / 2f) }
+    val r = android.graphics.RectF(0f, 0f, bmp.width.toFloat(), bmp.height.toFloat())
+    m.mapRect(r)
+    m.postTranslate(-r.left, -r.top)
+    val w = Math.ceil(r.width().toDouble()).toInt()
+    val h = Math.ceil(r.height().toDouble()).toInt()
+    return try {
+        val salida = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val lienzo = android.graphics.Canvas(salida)
+        lienzo.drawColor(android.graphics.Color.GRAY)
+        lienzo.drawBitmap(bmp, m, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
+        Enderezada(salida, m, bmp.width.toFloat() / anchoReferencia.coerceAtLeast(1))
+    } catch (e: OutOfMemoryError) {
+        null
+    }
+}
+
+/**
  * Recorte de [zona] con un recuadro alrededor de [marca] (la fila de la unidad): rojo si hay
  * una alerta documentada (reactivo o «No Apto»), azul si no. En memoria, nunca en disco.
  */

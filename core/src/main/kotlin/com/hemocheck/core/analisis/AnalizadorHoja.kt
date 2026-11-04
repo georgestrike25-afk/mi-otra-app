@@ -100,7 +100,8 @@ class AnalizadorHoja(
         if (pagina.vacia) avisos += AvisoPagina.SIN_TEXTO
         pagina.confianzaMedia?.let { if (it < umbralConfianza) avisos += AvisoPagina.CONFIANZA_BAJA_GENERAL }
 
-        val tanInclinacion = tan(Math.toRadians(inclinacionMediana(pagina).toDouble())).toFloat()
+        // Inclinación de las filas (tangente): primero la que informa el OCR; luego se ajusta con los datos
+        var tanInclinacion = tan(Math.toRadians(inclinacionMediana(pagina).toDouble())).toFloat()
         fun yc(c: Caja): Float = c.centroY - c.centroX * tanInclinacion
         fun mismaFila(a: Caja, b: Caja): Boolean = abs(yc(a) - yc(b)) <= 0.6f * max(a.alto, b.alto)
 
@@ -125,6 +126,9 @@ class AnalizadorHoja(
                 .map { Res(it.categoria, it.fragmento) }
         }
         unirNegacionesSeparadas(frases, lineas)
+        // Con la hoja inclinada, un resultado de una columna lejana queda a la altura de la fila vecina:
+        // la inclinación se estima con la propia tabla (la que alinea más resultados con sus números)
+        InclinacionFila.estimar(ids.mapNotNull { it.caja }, frases.mapNotNull { it.f.caja }, tanInclinacion)?.let { tanInclinacion = it }
         val fechaPagina = fechas.firstOrNull { (_, f) -> "fecha" in lineas[f.indiceLinea].textoNormalizado }?.first
             ?: fechas.firstOrNull()?.first
         val validacionPagina = lineas.filter { REGEX_VALIDACION.containsMatchIn(it.textoNormalizado) }

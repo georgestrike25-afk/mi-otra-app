@@ -139,4 +139,44 @@ class PlanillaHospitalTest {
         assertTrue(Problema.ID_FUERA_DE_ORDEN in dudosa.problemas)
         assertEquals(1, hoja.entradas.count { Problema.ID_FUERA_DE_ORDEN in it.problemas })
     }
+
+    /** Hoja torcida: las filas suben hacia la derecha y el OCR no informa ningún ángulo. */
+    private fun planillaInclinada(grados: Double, reactivo: Pair<Int, Int>): com.hemocheck.core.ocr.PaginaOcr {
+        val t = Math.tan(Math.toRadians(grados))
+        return pagina(3200, 2300) {
+            linea("Referencia", 60, 200, altoLetra = 24, angulo = null)
+            convencional.forEachIndexed { i, c -> linea(c, x(i), (200 + (x(i) - 60) * t).toInt(), altoLetra = 22, angulo = null) }
+            (0 until 14).forEach { f ->
+                val id = "9002%02d".format(f + 1)
+                linea(id, 60, 440 + f * 46, altoLetra = 24, angulo = null)
+                convencional.indices.forEach { i ->
+                    val y = (440 + f * 46 + (x(i) - 60) * t).toInt()
+                    linea(if (reactivo == f to i) "REACTIVO" else "NO REACTIVO", x(i), y, altoLetra = 22, angulo = null)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `hoja inclinada no asigna un resultado lejano a la fila vecina`() {
+        // Inclinación de -2°: en la última columna la fila queda ~85 px más arriba (casi 2 filas)
+        val hoja = analizador.analizar(planillaInclinada(-2.0, reactivo = 5 to 8), TipoRegistro.CONVENCIONAL)
+        val fila5 = hoja.entradas.single { it.ocurrencia.normalizado == "900206" }
+        val reactivos = fila5.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }
+        assertEquals(fila5.resultados.toString(), listOf("BRUCELOSIS"), reactivos.map { it.clave })
+        // Ninguna otra fila recibe ese reactivo
+        hoja.entradas.filter { it !== fila5 }.forEach { e ->
+            assertTrue("${e.ocurrencia.normalizado}: ${e.resultados}", e.resultados.none { it.categoria == CategoriaResultado.REACTIVO })
+        }
+    }
+
+    @Test
+    fun `inclinacion de una fila a partir de sus resultados`() {
+        val id = com.hemocheck.core.geometria.Caja(60, 440, 200, 464)
+        val resultados = (0..8).map { i ->
+            val x = 560 + i * 270
+            com.hemocheck.core.geometria.Caja(x, 440 + ((x - 60) * Math.tan(Math.toRadians(-2.0))).toInt(), x + 140, 462 + ((x - 60) * Math.tan(Math.toRadians(-2.0))).toInt())
+        }
+        assertEquals(-2.0f, com.hemocheck.core.analisis.InclinacionFila.grados(id, resultados), 0.15f)
+    }
 }

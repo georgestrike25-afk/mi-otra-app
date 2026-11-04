@@ -59,7 +59,10 @@ import com.hemocheck.core.resultado.CategoriaResultado
 import com.hemocheck.core.resultado.TipoRegistro
 import com.hemocheck.datos.DatosComparacion
 import com.hemocheck.datos.RegistroEncontrado
+import com.hemocheck.core.analisis.InclinacionFila
+import com.hemocheck.core.geometria.Caja
 import com.hemocheck.imagen.componerFila
+import com.hemocheck.imagen.enderezar
 import com.hemocheck.imagen.recortarConMarca
 import com.hemocheck.ui.comun.Aviso
 import com.hemocheck.ui.comun.Barra
@@ -333,7 +336,19 @@ private fun ImagenesDeTipo(
                 // Debajo, la fila completa con los encabezados: qué determinación es reactiva (en rojo)
                 val fila = remember(bmp, e.id) {
                     val reactivos = r.resultados.filter { it.categoria == CategoriaResultado.REACTIVO }.mapNotNull { it.caja }
-                    componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada, reactivos)
+                    // Hoja torcida: se endereza la imagen para que la fila quede horizontal y muestre solo su fila
+                    val grados = e.cajaId?.let { InclinacionFila.grados(it, r.resultados.mapNotNull { x -> x.caja }) } ?: 0f
+                    val recta = if (grados != 0f) enderezar(bmp, -grados, pagina.anchoProcesada) else null
+                    if (recta != null) {
+                        val filaCajas = listOfNotNull(e.cajaId) + r.resultados.mapNotNull { it.caja }
+                        val encabezados = r.resultados.mapNotNull { it.cajaEncabezado }
+                        componerFila(
+                            recta.bmp, Caja.unionDe(encabezados.map(recta::caja)), Caja.unionDe(filaCajas.map(recta::caja)),
+                            recta.bmp.width, recta.bmp.height, reactivos.map(recta::caja),
+                        )
+                    } else {
+                        componerFila(bmp, e.cajaEncabezados, e.cajaFila ?: e.cajaId, pagina.anchoProcesada, pagina.altoProcesada, reactivos)
+                    }
                 }
                 val compacto = e.cajaId != null && lectura?.ocr != null
                 if (fila != null && compacto) ImagenFila(fila, stringResource(R.string.recorte_fila), insignia)
