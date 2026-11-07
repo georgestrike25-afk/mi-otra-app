@@ -46,3 +46,12 @@ Las planillas solo tienen números de unidad y resultados, sin datos que identif
 persona. Para la sincronización PC ↔ celular se prioriza **que funcione simple** sobre la
 protección máxima: se puede habilitar Internet solo para esa función. Se mantienen las
 protecciones actuales que no estorban (PIN, cifrado local, borrado a los 6 meses).
+
+## Versión para Windows (mesada de transfusión): estado
+- Maqueta de la idea hecha (5 pantallas navegables, datos ficticios) para mostrar y pedir aprobación.
+  **No se programa nada hasta que la aprueben.**
+- Idea: lectura de PDF (texto directo o OCR si son imágenes), lector de código de barras USB (funciona
+  como teclado), carpeta compartida de red vigilada cada 30 s (solo lectura), sin Internet, sin fotos de
+  bolsas, datos cifrados, borrado a los 6 meses. Reutiliza el módulo `:core`.
+- Pendiente a futuro (pedido del usuario): **bloqueo para que la app no se copie a otras PC** (que solo
+  funcione en la PC que decida el usuario), para proteger la autoría. Se define después de la aprobación.
