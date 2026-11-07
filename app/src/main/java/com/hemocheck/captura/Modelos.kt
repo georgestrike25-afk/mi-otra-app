@@ -35,7 +35,26 @@ class PaginaCapturada(
     val codigosBarras: List<String>,
     val avisos: Set<AvisoCalidad>,
     val bordesDetectados: Boolean,
-)
+    /** Foto de etiqueta que no se puede guardar (sin número a la vista o con datos del paciente). */
+    val bloqueo: BloqueoFoto? = null,
+) {
+    fun conBloqueo(b: BloqueoFoto) = PaginaCapturada(
+        uid, modo, jpegOriginal, rotacion, jpegProcesada, anchoProcesada, altoProcesada, ocr, errorOcr, codigosBarras, avisos, bordesDetectados, b,
+    )
+}
+
+enum class MotivoBloqueo {
+    /** No se encontró el número de la etiqueta, así que no se sabe qué recortar. */
+    SIN_ETIQUETA,
+
+    /** Aparece una historia clínica, fecha de nacimiento u otra palabra de paciente: no se puede continuar. */
+    DATO_PERSONAL,
+
+    /** Parece haber un nombre: se pide repetir, pero se puede confirmar que no lo es. */
+    POSIBLE_NOMBRE,
+}
+
+data class BloqueoFoto(val motivo: MotivoBloqueo, val texto: String? = null)
 
 data class ResultadoEditable(
     val uid: String = UUID.randomUUID().toString(),
@@ -108,6 +127,8 @@ data class EstadoBorradorSerologia(
 data class EstadoBorradorEtiqueta(
     val pagina: PaginaCapturada? = null,
     val lectura: LecturaEtiqueta? = null,
+    /** Se verifica escribiendo el número a mano, sin guardar ninguna foto de la etiqueta. */
+    val sinFoto: Boolean = false,
 )
 
 /**
@@ -161,6 +182,10 @@ class Borradores {
 
     fun fijarEtiqueta(p: PaginaCapturada, lectura: LecturaEtiqueta) {
         _etiqueta.value = EstadoBorradorEtiqueta(p, lectura)
+    }
+
+    fun fijarEtiquetaSinFoto() {
+        _etiqueta.value = EstadoBorradorEtiqueta(sinFoto = true)
     }
 
     fun descartarSerologia() {

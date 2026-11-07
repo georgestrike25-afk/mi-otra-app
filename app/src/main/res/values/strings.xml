@@ -102,6 +102,12 @@
     <string name="revision_sin_avisos">No se detectaron problemas de calidad. Igualmente, revisá que el texto se lea bien.</string>
     <string name="revision_original_conservado">La foto original se conserva sin cambios (cifrada) como evidencia.</string>
     <string name="revision_usar_sin_recortar">Usar sin recortar (si la hoja se ve deformada)</string>
+    <string name="camara_bloqueo_sin_etiqueta">No se encontró el número de la etiqueta. Acercá la cámara a la etiqueta de la unidad y volvé a sacar la foto. La foto de la bolsa no se guarda.</string>
+    <string name="camara_bloqueo_dato_personal">Se detectó un dato del paciente en la etiqueta («%1$s»). La foto no se guarda: tapá el nombre y los datos del paciente y volvé a sacarla.</string>
+    <string name="camara_bloqueo_posible_nombre">Parece haber un nombre en la etiqueta («%1$s»). Tapalo y volvé a sacar la foto. Si no es un nombre, podés continuar.</string>
+    <string name="camara_escribir_numero">Escribir el número a mano (sin foto)</string>
+    <string name="camara_no_es_nombre">No es un nombre: continuar</string>
+    <string name="etiqueta_sin_foto_manual">Se verificará solo con el número que escribas, sin foto de la etiqueta.</string>
     <string name="camara_zoom">Zoom</string>
     <string name="camara_zoom_valor">Zoom %1$.1fx</string>
     <string name="confirmar_otra_pagina">Usar y tomar otra</string>

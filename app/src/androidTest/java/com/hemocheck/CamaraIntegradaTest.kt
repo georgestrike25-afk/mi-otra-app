@@ -88,7 +88,10 @@ class CamaraIntegradaTest {
         compose.waitUntil(30_000) { compose.onAllNodes(transmitiendo).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("boton_tomar_foto").performClick()
         compose.waitUntil(60_000) { existe("revision_foto") }
-        compose.onNodeWithTag("boton_confirmar_foto").performClick()
+        // La escena del emulador no tiene etiqueta: la foto queda bloqueada (la bolsa nunca se guarda) y
+        // se sigue escribiendo el número a mano. Con una etiqueta legible sin datos de paciente se confirma la foto.
+        compose.waitUntil(20_000) { existe("boton_confirmar_foto") || existe("boton_escribir_numero") }
+        compose.onNodeWithTag(if (existe("boton_confirmar_foto")) "boton_confirmar_foto" else "boton_escribir_numero").performClick()
         compose.waitUntil(20_000) { existe("campo_id_etiqueta") }
         verificarDentroDeHemoCheck()
     }

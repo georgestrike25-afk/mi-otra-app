@@ -7,9 +7,16 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import com.hemocheck.captura.BloqueoFoto
 import com.hemocheck.captura.ModoCaptura
+import com.hemocheck.captura.MotivoBloqueo
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.core.analisis.CompletarNegaciones
+import com.hemocheck.core.analisis.FilaCompacta
+import com.hemocheck.core.etiqueta.AnalizadorEtiqueta
+import com.hemocheck.core.etiqueta.DetectorDatosPersonales
+import com.hemocheck.core.identificador.FormatoIdentificador
+import com.hemocheck.core.ocr.recortada
 import com.hemocheck.core.imagen.AnalizadorCalidad
 import com.hemocheck.core.imagen.AvisoCalidad
 import com.hemocheck.core.imagen.DetectorHoja
@@ -111,6 +118,41 @@ class Procesador(private val ocr: MotorOcr) {
             if (trabajo !== base) trabajo.recycle()
             base.recycle()
         }
+    }
+
+    /**
+     * Deja de la foto de la etiqueta solo la etiqueta (el número con su código de barras): la foto de la bolsa
+     * completa nunca se guarda. Si aparece un dato de paciente (nombre, historia clínica, fecha de
+     * nacimiento) o no se encuentra el número, la página queda bloqueada y no se puede confirmar.
+     */
+    suspend fun soloEtiqueta(p: PaginaCapturada, formatos: List<FormatoIdentificador>): PaginaCapturada = withContext(Dispatchers.Default) {
+        val ocr = p.ocr
+        val lectura = ocr?.let { AnalizadorEtiqueta(formatos).analizar(it, p.codigosBarras) }
+        val id = lectura?.propuesto
+        val caja = lectura?.candidatos?.firstOrNull { it.normalizado == id || it.sugerido == id }?.caja
+            ?: id?.let { ocr?.let { o -> FilaCompacta.buscarEnEtiqueta(o, it) } }
+        val zona = if (ocr != null && caja != null) FilaCompacta.zonaEtiqueta(ocr, caja).limitarA(p.anchoProcesada, p.altoProcesada) else null
+        if (ocr == null || zona == null) {
+            return@withContext p.conBloqueo(BloqueoFoto(MotivoBloqueo.SIN_ETIQUETA))
+        }
+        val recortada = ocr.recortada(zona)
+        val hallazgo = DetectorDatosPersonales.detectar(recortada.lineas, id)
+        val completa = BitmapFactory.decodeByteArray(p.jpegProcesada, 0, p.jpegProcesada.size)
+            ?: return@withContext p.conBloqueo(BloqueoFoto(MotivoBloqueo.SIN_ETIQUETA))
+        val jpeg = try {
+            val recorte = Bitmap.createBitmap(completa, zona.izq, zona.arriba, zona.ancho, zona.alto)
+            comprimir(recorte).also { recorte.recycle() }
+        } finally {
+            completa.recycle()
+        }
+        PaginaCapturada(
+            uid = p.uid, modo = p.modo,
+            // El original de la cámara incluye la bolsa entera: no se conserva; se guarda solo el recorte
+            jpegOriginal = jpeg, rotacion = 0, jpegProcesada = jpeg,
+            anchoProcesada = zona.ancho, altoProcesada = zona.alto, ocr = recortada, errorOcr = p.errorOcr,
+            codigosBarras = p.codigosBarras, avisos = p.avisos, bordesDetectados = false,
+            bloqueo = hallazgo?.let { BloqueoFoto(if (it.tipo.duro) MotivoBloqueo.DATO_PERSONAL else MotivoBloqueo.POSIBLE_NOMBRE, it.texto) },
+        )
     }
 
     private fun decodificar(jpeg: ByteArray, rotacion: Int): Bitmap {

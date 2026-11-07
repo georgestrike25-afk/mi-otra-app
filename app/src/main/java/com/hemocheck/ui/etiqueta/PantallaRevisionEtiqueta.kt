@@ -96,42 +96,45 @@ fun PantallaRevisionEtiqueta(contenedor: Contenedor, onRepetir: () -> Unit, onVe
             Modifier.fillMaxSize().padding(relleno).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (pagina == null || lectura == null) {
+            if (!estado.sinFoto && (pagina == null || lectura == null)) {
                 Aviso(stringResource(R.string.etiqueta_sin_captura), Gravedad.ADVERTENCIA)
                 Button(onClick = onRepetir, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.etiqueta_fotografiar)) }
                 return@Column
             }
-            imagen?.let { bmp ->
-                ImagenAmpliable(bmp, stringResource(R.string.etiqueta_foto), alturaMax = 240)
-                val caja = lectura.candidatos.firstOrNull { it.normalizado == texto || it.sugerido == texto }?.caja
-                    ?: lectura.candidatos.firstOrNull()?.caja
-                val recorte = remember(bmp, caja) { recortarZona(bmp, caja, pagina.anchoProcesada, pagina.altoProcesada, 0.8f) }
-                if (recorte != null) {
-                    Text(stringResource(R.string.etiqueta_recorte_id), style = MaterialTheme.typography.titleSmall)
-                    ImagenAmpliable(recorte, stringResource(R.string.etiqueta_recorte_id), alturaMax = 120)
+            if (estado.sinFoto) Aviso(stringResource(R.string.etiqueta_sin_foto_manual), Gravedad.INFO)
+            if (pagina != null && lectura != null) {
+                imagen?.let { bmp ->
+                    ImagenAmpliable(bmp, stringResource(R.string.etiqueta_foto), alturaMax = 240)
+                    val caja = lectura.candidatos.firstOrNull { it.normalizado == texto || it.sugerido == texto }?.caja
+                        ?: lectura.candidatos.firstOrNull()?.caja
+                    val recorte = remember(bmp, caja) { recortarZona(bmp, caja, pagina.anchoProcesada, pagina.altoProcesada, 0.8f) }
+                    if (recorte != null) {
+                        Text(stringResource(R.string.etiqueta_recorte_id), style = MaterialTheme.typography.titleSmall)
+                        ImagenAmpliable(recorte, stringResource(R.string.etiqueta_recorte_id), alturaMax = 120)
+                    }
                 }
-            }
-            if (pagina.errorOcr) Aviso(stringResource(R.string.revision_error_ocr), Gravedad.PELIGRO)
-            pagina.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
-            // Solo las advertencias que cambian algo (no hay número, hay varios o el código de barras no coincide)
-            lectura.avisos.filter { it in AVISOS_ETIQUETA_RELEVANTES }.forEach {
-                Aviso(stringResource(textoAvisoEtiqueta(it)), Gravedad.ADVERTENCIA)
-            }
-            ComponenteHemo.desdeLetra(lectura.componente)?.let {
-                Text(stringResource(R.string.etiqueta_componente, stringResource(textoComponente(it))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-            }
-            lectura.idCodigoBarras?.let { Text(stringResource(R.string.etiqueta_codigo_barras, formatearId(it)), style = MaterialTheme.typography.bodySmall) }
+                if (pagina.errorOcr) Aviso(stringResource(R.string.revision_error_ocr), Gravedad.PELIGRO)
+                pagina.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
+                // Solo las advertencias que cambian algo (no hay número, hay varios o el código de barras no coincide)
+                lectura.avisos.filter { it in AVISOS_ETIQUETA_RELEVANTES }.forEach {
+                    Aviso(stringResource(textoAvisoEtiqueta(it)), Gravedad.ADVERTENCIA)
+                }
+                ComponenteHemo.desdeLetra(lectura.componente)?.let {
+                    Text(stringResource(R.string.etiqueta_componente, stringResource(textoComponente(it))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+                lectura.idCodigoBarras?.let { Text(stringResource(R.string.etiqueta_codigo_barras, formatearId(it)), style = MaterialTheme.typography.bodySmall) }
 
-            if (lectura.candidatos.size > 1 || lectura.candidatos.any { it.sugerido != null }) {
-                Text(stringResource(R.string.etiqueta_candidatos), style = MaterialTheme.typography.titleSmall)
-                lectura.candidatos.forEach { c ->
-                    val valor = c.sugerido ?: c.normalizado
-                    AssistChip(onClick = { texto = valor }, label = {
-                        Text(
-                            if (c.sugerido != null) stringResource(R.string.etiqueta_candidato_sugerido, c.textoCrudo, formatearId(valor))
-                            else formatearId(valor)
-                        )
-                    })
+                if (lectura.candidatos.size > 1 || lectura.candidatos.any { it.sugerido != null }) {
+                    Text(stringResource(R.string.etiqueta_candidatos), style = MaterialTheme.typography.titleSmall)
+                    lectura.candidatos.forEach { c ->
+                        val valor = c.sugerido ?: c.normalizado
+                        AssistChip(onClick = { texto = valor }, label = {
+                            Text(
+                                if (c.sugerido != null) stringResource(R.string.etiqueta_candidato_sugerido, c.textoCrudo, formatearId(valor))
+                                else formatearId(valor)
+                            )
+                        })
+                    }
                 }
             }
 

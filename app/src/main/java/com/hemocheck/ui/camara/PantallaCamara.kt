@@ -92,6 +92,7 @@ import com.hemocheck.Contenedor
 import com.hemocheck.R
 import com.hemocheck.ui.comun.relevante
 import com.hemocheck.captura.ModoCaptura
+import com.hemocheck.captura.MotivoBloqueo
 import com.hemocheck.captura.PaginaCapturada
 import com.hemocheck.core.analisis.AnalizadorHoja
 import com.hemocheck.core.analisis.DetectorTipoHoja
@@ -307,7 +308,11 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                 }
                 alcance.launch(Dispatchers.Main) {
                     estado = try {
-                        val pagina = contenedor.procesador.procesar(bytes, rotacion, modo)
+                        var pagina = contenedor.procesador.procesar(bytes, rotacion, modo)
+                        // En la etiqueta solo se conserva la etiqueta (nunca la bolsa) y se bloquea si hay datos de paciente
+                        if (modo == ModoCaptura.ETIQUETA) {
+                            pagina = contenedor.procesador.soloEtiqueta(pagina, contenedor.ajustes.identificadores.formatos())
+                        }
                         EstadoCaptura.Revision(pagina, withContext(Dispatchers.Default) { decodificarVista(pagina.jpegProcesada) })
                     } catch (e: OutOfMemoryError) {
                         EstadoCaptura.Error(R.string.camara_error_procesar)
@@ -334,6 +339,12 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                 EstadoCaptura.Error(R.string.camara_error_procesar)
             }
         }
+    }
+
+    /** No se pudo leer la etiqueta: se verifica escribiendo el número, sin guardar ninguna foto. */
+    fun escribirNumero() {
+        contenedor.borradores.fijarEtiquetaSinFoto()
+        onTerminar()
     }
 
     fun confirmar(p: PaginaCapturada, terminar: Boolean) {
@@ -471,6 +482,7 @@ private fun VistaCamara(contenedor: Contenedor, modo: ModoCaptura, onTerminar: (
                 onRepetir = { estado = EstadoCaptura.Vista },
                 onSinRecortar = { usarSinRecortar(e.pagina) },
                 onConfirmar = { terminar -> confirmar(e.pagina, terminar) },
+                onEscribirNumero = { escribirNumero() },
             )
             is EstadoCaptura.Error -> Box(Modifier.fillMaxSize().background(Color(0xDD000000)).padding(24.dp), contentAlignment = Alignment.Center) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -492,7 +504,9 @@ private fun RevisionFoto(
     onRepetir: () -> Unit,
     onSinRecortar: () -> Unit,
     onConfirmar: (terminar: Boolean) -> Unit,
+    onEscribirNumero: () -> Unit,
 ) {
+    val bloqueo = pagina.bloqueo
     val imagen = remember(vistaPrevia) { vistaPrevia.asImageBitmap() }
     Column(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().padding(12.dp)
@@ -513,6 +527,15 @@ private fun RevisionFoto(
                 }
             }
             pagina.avisos.filter { it.relevante() }.forEach { Aviso(stringResource(textoCalidad(it)), Gravedad.ADVERTENCIA) }
+            when (bloqueo?.motivo) {
+                MotivoBloqueo.SIN_ETIQUETA ->
+                    Aviso(stringResource(R.string.camara_bloqueo_sin_etiqueta), Gravedad.PELIGRO, Modifier.testTag("bloqueo_etiqueta"))
+                MotivoBloqueo.DATO_PERSONAL ->
+                    Aviso(stringResource(R.string.camara_bloqueo_dato_personal, bloqueo.texto.orEmpty()), Gravedad.PELIGRO, Modifier.testTag("bloqueo_etiqueta"))
+                MotivoBloqueo.POSIBLE_NOMBRE ->
+                    Aviso(stringResource(R.string.camara_bloqueo_posible_nombre, bloqueo.texto.orEmpty()), Gravedad.ADVERTENCIA, Modifier.testTag("bloqueo_etiqueta"))
+                null -> Unit
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onRepetir, modifier = Modifier.weight(1f).testTag("boton_repetir")) { Text(stringResource(R.string.repetir)) }
@@ -522,8 +545,20 @@ private fun RevisionFoto(
                 }
             }
         }
-        Button(onClick = { onConfirmar(true) }, modifier = Modifier.fillMaxWidth().testTag("boton_confirmar_foto")) {
-            Text(stringResource(if (modo == ModoCaptura.HOJA) R.string.confirmar_terminar else R.string.confirmar_continuar))
+        when (bloqueo?.motivo) {
+            // Sin número a la vista no se guarda nada: solo se puede repetir o escribir el número a mano
+            MotivoBloqueo.SIN_ETIQUETA -> OutlinedButton(onClick = onEscribirNumero, modifier = Modifier.fillMaxWidth().testTag("boton_escribir_numero")) {
+                Text(stringResource(R.string.camara_escribir_numero))
+            }
+            // Con datos de paciente la foto no se puede guardar de ninguna forma
+            MotivoBloqueo.DATO_PERSONAL -> Unit
+            // Parece un nombre: se puede continuar solo si se confirma que no lo es
+            MotivoBloqueo.POSIBLE_NOMBRE -> OutlinedButton(onClick = { onConfirmar(true) }, modifier = Modifier.fillMaxWidth().testTag("boton_no_es_nombre")) {
+                Text(stringResource(R.string.camara_no_es_nombre))
+            }
+            null -> Button(onClick = { onConfirmar(true) }, modifier = Modifier.fillMaxWidth().testTag("boton_confirmar_foto")) {
+                Text(stringResource(if (modo == ModoCaptura.HOJA) R.string.confirmar_terminar else R.string.confirmar_continuar))
+            }
         }
     }
 }
