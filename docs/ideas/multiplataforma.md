@@ -75,3 +75,10 @@ protecciones actuales que no estorban (PIN, cifrado local, borrado a los 6 meses
 - Confirmación de la unidad con mouse, Enter o escaneando de nuevo la misma etiqueta; luego vuelve a la pantalla
   de escaneo. Definir: escanear otra bolsa sin confirmar pasa a la nueva; para «No Apto», pedir clic o Enter.
 - Pendiente: bloqueo contra copias (lista de PC autorizadas, activación por equipo), tras la aprobación.
+
+## Pendiente: tiempo de conservación (borrado automático)
+- Hoy: 6 meses. Idea del usuario: **12 meses, porque el plasma dura 12 meses** (así la serología sigue
+  disponible mientras exista el hemocomponente). **Se define después** con la jefatura.
+- Al decidirlo hay que cambiar: `PoliticaRetencion`/`plusMonths(6)` en `:core`, los textos «6 meses» de la app,
+  de la ayuda y de la ficha para el hospital, y la maqueta de Windows. Acordar también cuánto se conservan los
+  PDF originales en la carpeta compartida (lo decide el hospital).

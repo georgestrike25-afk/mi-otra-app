@@ -58,6 +58,9 @@ Versiones en `gradle/libs.versions.toml` (si cambia Kotlin, actualizar `core/set
 - Paleta: turquesa #08B5D6, azul #123F68, amarillo #FFC928, carbón #10151D; rojo solo para alertas.
 
 ## Problemas conocidos / pendientes
+- **Tiempo de conservación a definir (anotado por el usuario):** hoy se borra a los 6 meses (`PoliticaRetencion`,
+  `plusMonths(6)`), pero probablemente convenga **12 meses porque el plasma dura 12 meses**. Se decide después con
+  la jefatura; al cambiarlo, actualizar la app Android, la versión Windows, los textos y la maqueta.
 - Fotos borrosas generan lecturas erróneas; la verificación final siempre es visual.
 - Las verificaciones guardan un informe: tras un cambio de lógica hay que verificar de nuevo la unidad.
 - Pendiente: PDF reales del servicio (función ya implementada), versión iPhone/PC (ver docs/ideas).
