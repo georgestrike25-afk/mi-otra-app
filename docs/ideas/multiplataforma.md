@@ -55,3 +55,23 @@ protecciones actuales que no estorban (PIN, cifrado local, borrado a los 6 meses
   bolsas, datos cifrados, borrado a los 6 meses. Reutiliza el módulo `:core`.
 - Pendiente a futuro (pedido del usuario): **bloqueo para que la app no se copie a otras PC** (que solo
   funcione en la PC que decida el usuario), para proteger la autoría. Se define después de la aprobación.
+
+## Decisiones acordadas para la versión de Windows (noviembre 2026)
+- **Una copia de HemoCheck por PC** (carpeta portable por pendrive), cada una con su PIN, su lector de código
+  de barras y su propia base cifrada. No se comparte la base entre PC (no se pone en carpeta de red).
+- **Todas las PC leen la misma carpeta compartida de PDF**, en solo lectura. La carpeta vive físicamente en
+  una PC de hemoterapia (la de la mesada) y las demás entran por la red; la PC que la aloja la lee como local.
+- Subcarpetas por servicio: Hemoterapia, Laboratorio_Central, Biologia_Molecular (el tipo SC/NAT se
+  reconoce por el contenido). Pedido a Sistemas: carpeta compartida, permisos (laboratorios guardan,
+  mesada lee), autorizar el programa, definir conservación de los PDF.
+- **Revisión de la carpeta configurable**: seguido en horario de trabajo (p. ej. cada 15 min) o a una hora fija
+  (p. ej. 19:00) según decida la jefatura; botón «Revisar ahora». Preferible seguido, para que la serología del
+  mismo día esté disponible.
+- La marca «revisada» y el historial son **por PC**: no hace falta saber quién marcó cada unidad, así que no se
+  hace modo servidor.
+- Los PDF llegan por la carpeta (no por mail automático): leer una casilla exige que Sistemas cree una casilla
+  dedicada. Mientras tanto se puede arrastrar el PDF a la app. (Corrección: las reglas de Outlook no guardan
+  adjuntos solas.)
+- Confirmación de la unidad con mouse, Enter o escaneando de nuevo la misma etiqueta; luego vuelve a la pantalla
+  de escaneo. Definir: escanear otra bolsa sin confirmar pasa a la nueva; para «No Apto», pedir clic o Enter.
+- Pendiente: bloqueo contra copias (lista de PC autorizadas, activación por equipo), tras la aprobación.
